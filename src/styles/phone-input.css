@@ -1,0 +1,67 @@
+/* Phone Input Styles */
+.PhoneInput {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.PhoneInputCountry {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  border-right: 1px solid #e5e7eb;
+}
+
+.PhoneInputCountrySelect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.PhoneInputCountryIcon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+  border: none !important;
+  padding: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent;
+}
+
+.PhoneInputInput:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 640px) {
+  .PhoneInput {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .PhoneInputCountry {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.5rem;
+  }
+
+  .PhoneInputInput {
+    padding: 0.5rem !important;
+  }
+}
