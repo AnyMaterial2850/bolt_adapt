@@ -34,11 +34,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Add constraint back with DEFERRABLE
+-- Add constraint without DEFERRABLE
 ALTER TABLE habits
   ADD CONSTRAINT valid_bottom_line_items
-  CHECK (validate_bottom_line_items(bottom_line_items))
-  DEFERRABLE INITIALLY IMMEDIATE;
+  CHECK (validate_bottom_line_items(bottom_line_items));
 
 -- Initialize empty bottom line items array for existing records
 UPDATE habits 

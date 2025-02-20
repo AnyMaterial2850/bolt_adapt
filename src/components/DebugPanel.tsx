@@ -33,7 +33,8 @@ export function DebugPanel() {
     : logs.filter(log => log.type === filter);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-gray-900 text-white font-mono text-sm z-[9999]">
+    <>
+  {isVisible &&  <div className="fixed bottom-0 left-0 right-0 bg-gray-900 text-white font-mono text-sm z-[9999]">
       <div className="flex items-center justify-between p-2 border-b border-gray-700">
         <div className="flex items-center space-x-2">
           <button
@@ -117,6 +118,7 @@ export function DebugPanel() {
           ))}
         </div>
       )}
-    </div>
+    </div>}
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { HabitList } from '../components/habits/HabitList';
@@ -6,7 +6,7 @@ import { PlanTab } from '../components/plan/PlanTab';
 import { supabase } from '../lib/supabase';
 import type { HabitCategory, UserHabit } from '../types/database';
 import { Target, MessageCircle } from 'lucide-react';
-import { format, isAfter, startOfDay, isFuture, parseISO, subMonths } from 'date-fns';
+import { format, startOfDay, isFuture, parseISO, subMonths } from 'date-fns';
 import { Toast } from '../components/ui/Toast';
 import { useDebugStore } from '../stores/debugStore';
 
@@ -58,6 +58,110 @@ export function Home() {
     return dateB.getTime() - dateA.getTime();
   });
 
+ 
+
+const loadHabits = useCallback(async () => {
+    if (!user) return;
+
+    try {
+        setLoading(true);
+        addLog('Loading habits...', 'info');
+
+        // Load all habits and create user habits if they don't exist
+        const { data: habits, error: habitsError } = await supabase
+            .from('habits')
+            .select('*');
+
+        if (habitsError) {
+            addLog(`Failed to load habits: ${habitsError.message}`, 'error');
+            throw habitsError;
+        }
+
+        addLog(`Found ${habits?.length || 0} habits`, 'success');
+
+        // For each habit, get or create a user_habit
+        const userHabitsPromises = habits.map(async (habit) => {
+            const { data: existingUserHabit, error: userHabitError } = await supabase
+                .from('user_habits')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('habit_id', habit.id)
+                .single();
+
+            if (userHabitError && userHabitError.code !== 'PGRST116') {
+                addLog(`Error checking user habit: ${userHabitError.message}`, 'error');
+                throw userHabitError;
+            }
+
+            if (!existingUserHabit) {
+                addLog(`Creating user habit for habit ${habit.id}`, 'info');
+                const { data: newUserHabit, error: createError } = await supabase
+                    .from('user_habits')
+                    .insert([{
+                        user_id: user.id,
+                        habit_id: habit.id,
+                        frequency_per_day: 1,
+                        active: false,
+                        daily_schedules: [
+                            { day: 'Mon', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
+                            { day: 'Tue', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
+                            { day: 'Wed', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
+                            { day: 'Thu', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
+                            { day: 'Fri', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
+                            { day: 'Sat', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
+                            { day: 'Sun', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
+                        ],
+                    }])
+                    .select()
+                    .single();
+
+                if (createError) {
+                    addLog(`Failed to create user habit: ${createError.message}`, 'error');
+                    throw createError;
+                }
+                return { ...newUserHabit, habit };
+            }
+
+            return { ...existingUserHabit, habit };
+        });
+
+        const userHabitsData = await Promise.all(userHabitsPromises);
+        addLog(`Loaded ${userHabitsData.length} user habits`, 'success');
+        setUserHabits(userHabitsData);
+
+        // Load completions for selected date
+        const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        const { data: completionsData, error: completionsError } = await supabase
+            .from('habit_completions')
+            .select('*')
+            .eq('date', dateStr);
+
+        if (completionsError) {
+            addLog(`Failed to load completions: ${completionsError.message}`, 'error');
+            throw completionsError;
+        }
+
+        const completionsMap: Record<string, boolean> = {};
+        completionsData?.forEach(completion => {
+            const key = `${completion.user_habit_id}-${completion.date}-${completion.event_time}`;
+            completionsMap[key] = true;
+        });
+        setCompletions(completionsMap);
+        addLog('Loaded completions successfully', 'success');
+
+    } catch (err) {
+        console.error('Error loading habits:', err);
+        const message = err instanceof Error ? err.message : 'Failed to load habits';
+        addLog(`Error: ${message}`, 'error');
+        setToast({
+            message: 'Failed to load habits. Please try again.',
+            type: 'error'
+        });
+    } finally {
+        setLoading(false);
+    }
+}, [user, selectedDate, addLog, setToast]);
+
   useEffect(() => {
     if (!user) {
       navigate('/sign-in');
@@ -65,110 +169,7 @@ export function Home() {
     }
 
     loadHabits();
-  }, [user, navigate, selectedDate]);
-
-  const loadHabits = async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      addLog('Loading habits...', 'info');
-
-      // Load all habits and create user habits if they don't exist
-      const { data: habits, error: habitsError } = await supabase
-        .from('habits')
-        .select('*');
-
-      if (habitsError) {
-        addLog(`Failed to load habits: ${habitsError.message}`, 'error');
-        throw habitsError;
-      }
-
-      addLog(`Found ${habits?.length || 0} habits`, 'success');
-
-      // For each habit, get or create a user_habit
-      const userHabitsPromises = habits.map(async (habit) => {
-        const { data: existingUserHabit, error: userHabitError } = await supabase
-          .from('user_habits')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('habit_id', habit.id)
-          .single();
-
-        if (userHabitError && userHabitError.code !== 'PGRST116') {
-          addLog(`Error checking user habit: ${userHabitError.message}`, 'error');
-          throw userHabitError;
-        }
-
-        if (!existingUserHabit) {
-          addLog(`Creating user habit for habit ${habit.id}`, 'info');
-          const { data: newUserHabit, error: createError } = await supabase
-            .from('user_habits')
-            .insert([{
-              user_id: user.id,
-              habit_id: habit.id,
-              frequency_per_day: 1,
-              active: false,
-              daily_schedules: [
-                { day: 'Mon', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                { day: 'Tue', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                { day: 'Wed', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                { day: 'Thu', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                { day: 'Fri', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                { day: 'Sat', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                { day: 'Sun', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-              ],
-            }])
-            .select()
-            .single();
-
-          if (createError) {
-            addLog(`Failed to create user habit: ${createError.message}`, 'error');
-            throw createError;
-          }
-          return { ...newUserHabit, habit };
-        }
-
-        return { ...existingUserHabit, habit };
-      });
-
-      const userHabitsData = await Promise.all(userHabitsPromises);
-      addLog(`Loaded ${userHabitsData.length} user habits`, 'success');
-      setUserHabits(userHabitsData);
-
-      // Load completions for selected date
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const { data: completionsData, error: completionsError } = await supabase
-        .from('habit_completions')
-        .select('*')
-        .eq('date', dateStr);
-
-      if (completionsError) {
-        addLog(`Failed to load completions: ${completionsError.message}`, 'error');
-        throw completionsError;
-      }
-
-      const completionsMap: Record<string, boolean> = {};
-      completionsData?.forEach(completion => {
-        const key = `${completion.user_habit_id}-${completion.date}-${completion.event_time}`;
-        completionsMap[key] = true;
-      });
-      setCompletions(completionsMap);
-      addLog('Loaded completions successfully', 'success');
-
-    } catch (err) {
-      console.error('Error loading habits:', err);
-      const message = err instanceof Error ? err.message : 'Failed to load habits';
-      addLog(`Error: ${message}`, 'error');
-      setToast({
-        message: 'Failed to load habits. Please try again.',
-        type: 'error'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  }, [user, navigate, selectedDate, loadHabits]);
   const handleToggleHabit = async (habitId: string) => {
     const habit = userHabits.find(h => h.id === habitId);
     if (!habit) return;

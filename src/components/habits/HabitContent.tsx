@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { ExternalLink, FileText, Image as ImageIcon, Video, Link as LinkIcon } from 'lucide-react';
 import type { Habit, BottomLineItem } from '../../types/database';
 import { VideoPlayer } from '../video/VideoPlayer';
@@ -8,7 +7,6 @@ interface HabitContentProps {
 }
 
 export function HabitContent({ habit }: HabitContentProps) {
-  const [isVideoLoading, setIsVideoLoading] = useState(false);
 
   const renderContentItem = (item: BottomLineItem) => {
     switch (item.type) {
