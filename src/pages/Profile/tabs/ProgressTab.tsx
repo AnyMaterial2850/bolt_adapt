@@ -15,7 +15,7 @@ export function ProgressTab({ onToast }: ProgressTabProps) {
     if (!user) return;
 
     try {
-      addLog(`Updating profile field: ${field}`, 'info', { value });
+      addLog(`Updating profile field: ${field}`, 'info', { data: { field, value } });
 
       const { error } = await supabase
         .from('profiles')
@@ -31,7 +31,6 @@ export function ProgressTab({ onToast }: ProgressTabProps) {
       const error = err instanceof Error ? err : new Error(`Failed to update ${field}`);
       addLog(`Failed to update ${field}`, 'error', { error });
       onToast(`Failed to update ${field}. Please try again.`, 'error');
-      throw error;
     }
   };
 
@@ -39,8 +38,8 @@ export function ProgressTab({ onToast }: ProgressTabProps) {
     <div className="space-y-6">
       {/* Goal Section */}
       <GoalSection
-        goalWhat={user?.goal_what}
-        goalWhy={user?.goal_why}
+        goalWhat={user?.goal_what ?? null}
+        goalWhy={user?.goal_why ?? null}
         coachingNotes={user?.coaching_notes || []}
         onUpdateGoal={(goal) => handleUpdateProfile('goal_what', goal)}
         onUpdateWhy={(why) => handleUpdateProfile('goal_why', why)}

@@ -13,7 +13,7 @@ import { useDebugStore } from './stores/debugStore';
 import { Layout } from './components/Layout';
 import { HealthCheck } from './components/shared/HealthCheck';
 import { ConnectionStatus } from './components/ConnectionStatus';
-import { Profile } from './pages/Profile';
+import Profile from './pages/Profile/Profile';
 
 function App() {
   const { loadUser, loading, user } = useAuthStore();

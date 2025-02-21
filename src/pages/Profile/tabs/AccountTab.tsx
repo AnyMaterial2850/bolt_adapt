@@ -6,53 +6,82 @@ import { Input } from '../../../components/ui/Input';
 import { PaymentSection } from '../../../components/profile/PaymentSection';
 import { SubscriptionSection } from '../../../components/profile/SubscriptionSection';
 import { DeleteAccountSection } from '../../../components/profile/DeleteAccountSection';
-import { useDebugStore } from '../../../stores/debugStore';
 
 interface AccountTabProps {
   onToast: (message: string, type: 'success' | 'error') => void;
 }
 
+interface PasswordForm {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+const initialPasswordForm: PasswordForm = {
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+};
+
 export function AccountTab({ onToast }: AccountTabProps) {
-  const { addLog } = useDebugStore();
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordForm, setPasswordForm] = useState<PasswordForm>(initialPasswordForm);
   const [passwordError, setPasswordError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handlePasswordChange = async () => {
     setPasswordError('');
-
-    // Validate passwords
-    if (newPassword.length < 6) {
-      setPasswordError('Password must be at least 6 characters long');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match');
-      return;
-    }
+    setIsLoading(true);
 
     try {
-      addLog('Updating password...', 'info');
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
+      // Validate passwords
+      if (passwordForm.newPassword.length < 6) {
+        setPasswordError('New password must be at least 6 characters long');
+        return;
+      }
+
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+        setPasswordError('New passwords do not match');
+        return;
+      }
+
+      // First verify the current password
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: (await supabase.auth.getUser()).data.user?.email || '',
+        password: passwordForm.currentPassword
       });
 
-      if (error) throw error;
+      if (signInError) {
+        setPasswordError('Current password is incorrect');
+        return;
+      }
+
+      // If current password is correct, update to new password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword
+      });
+
+      if (updateError) throw updateError;
 
       onToast('Password updated successfully', 'success');
       setIsChangingPassword(false);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      addLog('Password updated successfully', 'success');
+      setPasswordForm(initialPasswordForm);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update password';
       setPasswordError(message);
-      addLog(`Failed to update password: ${message}`, 'error');
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleInputChange = (field: keyof PasswordForm) => (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setPasswordForm(prev => ({
+      ...prev,
+      [field]: e.target.value
+    }));
+    setPasswordError('');
   };
 
   return (
@@ -75,9 +104,10 @@ export function AccountTab({ onToast }: AccountTabProps) {
                 </label>
                 <Input
                   type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  value={passwordForm.currentPassword}
+                  onChange={handleInputChange('currentPassword')}
                   placeholder="Enter current password"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -87,9 +117,10 @@ export function AccountTab({ onToast }: AccountTabProps) {
                 </label>
                 <Input
                   type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  value={passwordForm.newPassword}
+                  onChange={handleInputChange('newPassword')}
                   placeholder="Enter new password"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -99,46 +130,42 @@ export function AccountTab({ onToast }: AccountTabProps) {
                 </label>
                 <Input
                   type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  value={passwordForm.confirmPassword}
+                  onChange={handleInputChange('confirmPassword')}
                   placeholder="Confirm new password"
+                  disabled={isLoading}
                 />
               </div>
 
               {passwordError && (
-                <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
-                  {passwordError}
-                </div>
+                <p className="text-sm text-red-600">{passwordError}</p>
               )}
 
-              <div className="flex justify-end space-x-3 pt-4">
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handlePasswordChange}
+                  disabled={!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword || isLoading}
+                >
+                  {isLoading ? 'Updating...' : 'Update Password'}
+                </Button>
                 <Button
                   variant="secondary"
                   onClick={() => {
                     setIsChangingPassword(false);
-                    setCurrentPassword('');
-                    setNewPassword('');
-                    setConfirmPassword('');
+                    setPasswordForm(initialPasswordForm);
                     setPasswordError('');
                   }}
+                  disabled={isLoading}
                 >
                   Cancel
-                </Button>
-                <Button
-                  onClick={handlePasswordChange}
-                  disabled={!currentPassword || !newPassword || !confirmPassword}
-                >
-                  Update Password
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm text-gray-600">
-                  Change your password to keep your account secure
-                </p>
-              </div>
+            <div>
+              <p className="text-sm text-gray-600 mb-4">
+                Change your password to keep your account secure.
+              </p>
               <Button onClick={() => setIsChangingPassword(true)}>
                 Change Password
               </Button>
@@ -147,8 +174,13 @@ export function AccountTab({ onToast }: AccountTabProps) {
         </div>
       </div>
 
-      <PaymentSection />
+      {/* Subscription Section */}
       <SubscriptionSection />
+
+      {/* Payment Section */}
+      <PaymentSection />
+
+      {/* Delete Account Section */}
       <DeleteAccountSection />
     </div>
   );

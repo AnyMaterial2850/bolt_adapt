@@ -1,12 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { User, Mail, Phone, Calendar } from 'lucide-react';
 import { useAuthStore } from '../../../stores/authStore';
 import { supabase } from '../../../lib/supabase';
-import { useDebugStore } from '../../../stores/debugStore';
 import { ProfileField } from '../../../components/profile/ProfileField';
 import { WeightTracker } from '../../../components/profile/WeightTracker';
 import { format, parseISO } from 'date-fns';
 import { PhoneInput } from '../../../components/profile/PhoneInput';
+import type { WeightEntry } from '../../../types/database';
 
 interface ProfileTabProps {
   onToast: (message: string, type: 'success' | 'error') => void;
@@ -14,14 +14,130 @@ interface ProfileTabProps {
 
 export function ProfileTab({ onToast }: ProfileTabProps) {
   const { user, loadUser } = useAuthStore();
-  const { addLog } = useDebugStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
 
-  const handleUpdateProfile = async (field: string, value: string) => {
+  // Load weight entries
+  useEffect(() => {
+    const loadWeightEntries = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('weight_entries')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('recorded_at', { ascending: false });
+
+        if (error) throw error;
+        setWeightEntries(data || []);
+      } catch {
+        onToast('Failed to load weight entries', 'error');
+      }
+    };
+
+    loadWeightEntries();
+  }, [user, onToast]);
+
+  const handleAddWeightEntry = async (weight: string, date: string) => {
     if (!user) return;
 
     try {
-      addLog(`Updating profile field: ${field}`, 'info', { value });
+      setIsLoading(true);
+      const weightValue = parseFloat(weight);
+      
+      if (isNaN(weightValue) || weightValue <= 0) {
+        onToast('Please enter a valid weight', 'error');
+        return;
+      }
 
+      const { data, error } = await supabase
+        .from('weight_entries')
+        .insert([{
+          user_id: user.id,
+          weight: weightValue,
+          recorded_at: date,
+          unit: user.preferred_weight_unit || 'kg'
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add the new entry to the beginning of the list
+      setWeightEntries(prev => [data, ...prev]);
+      onToast('Weight entry added successfully', 'success');
+    } catch {
+      onToast('Failed to add weight entry', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditWeightEntry = async (entryId: string, weight: string, date: string) => {
+    if (!user) return;
+
+    try {
+      setIsLoading(true);
+      const weightValue = parseFloat(weight);
+      
+      if (isNaN(weightValue) || weightValue <= 0) {
+        onToast('Please enter a valid weight', 'error');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('weight_entries')
+        .update({
+          weight: weightValue,
+          recorded_at: date,
+          unit: user.preferred_weight_unit || 'kg'
+        })
+        .eq('id', entryId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setWeightEntries(weightEntries.map(entry => 
+        entry.id === entryId 
+          ? { ...entry, weight: weightValue, recorded_at: date, unit: user.preferred_weight_unit || 'kg' }
+          : entry
+      ));
+      onToast('Weight entry updated successfully', 'success');
+    } catch {
+      onToast('Failed to update weight entry', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteWeightEntry = async (entryId: string) => {
+    if (!user) return;
+
+    try {
+      setIsLoading(true);
+      const { error } = await supabase
+        .from('weight_entries')
+        .delete()
+        .eq('id', entryId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setWeightEntries(weightEntries.filter(entry => entry.id !== entryId));
+      onToast('Weight entry deleted successfully', 'success');
+    } catch{
+      onToast('Failed to delete weight entry', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateProfile = async (field: string, value: string | null) => {
+    if (!user) return;
+
+    try {
+      setIsLoading(true);
       const { error } = await supabase
         .from('profiles')
         .update({ [field]: value })
@@ -30,20 +146,13 @@ export function ProfileTab({ onToast }: ProfileTabProps) {
       if (error) throw error;
 
       await loadUser();
-      addLog(`${field} updated successfully`, 'success');
       onToast(`${field.replace('_', ' ')} updated successfully`, 'success');
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(`Failed to update ${field}`);
-      addLog(`Failed to update ${field}`, 'error', { error });
+    } catch {
       onToast(`Failed to update ${field}. Please try again.`, 'error');
-      throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  // Log current user data when component mounts
-  useEffect(() => {
-    addLog('Current user data:', 'debug', { user });
-  }, [user, addLog]);
 
   return (
     <div className="space-y-6">
@@ -82,6 +191,7 @@ export function ProfileTab({ onToast }: ProfileTabProps) {
                 value={user?.sex || ''}
                 onChange={(e) => handleUpdateProfile('sex', e.target.value)}
                 className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                disabled={isLoading}
               >
                 <option value="">Select your sex</option>
                 <option value="male">Male</option>
@@ -124,7 +234,7 @@ export function ProfileTab({ onToast }: ProfileTabProps) {
                     await handleUpdateProfile('mobile_number', phoneNumber);
                     await handleUpdateProfile('mobile_country_code', countryCode);
                     onToast('Phone number updated successfully', 'success');
-                  } catch (err) {
+                  } catch {
                     onToast('Failed to update phone number', 'error');
                   }
                 }}
@@ -135,16 +245,22 @@ export function ProfileTab({ onToast }: ProfileTabProps) {
       </div>
 
       {/* Weight Tracking */}
-      <div className="bg-white rounded-xl p-6">
-        <h3 className="text-lg font-medium mb-4">Weight Tracking</h3>
-        <WeightTracker
-          entries={[]} // TODO: Implement weight tracking
-          weightUnit={user?.preferred_weight_unit || 'kg'}
-          onAddEntry={() => {}} // TODO: Implement
-          onEditEntry={() => {}} // TODO: Implement
-          onDeleteEntry={() => {}} // TODO: Implement
-          onUnitChange={() => {}} // TODO: Implement
-        />
+      <div className="bg-white rounded-xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h3 className="font-medium text-gray-900">Weight Tracking</h3>
+        </div>
+        <div className="p-6">
+          <WeightTracker
+            entries={weightEntries}
+            weightUnit={user?.preferred_weight_unit || 'kg'}
+            onAddEntry={handleAddWeightEntry}
+            onEditEntry={handleEditWeightEntry}
+            onDeleteEntry={handleDeleteWeightEntry}
+            onUnitChange={(unit) => handleUpdateProfile('preferred_weight_unit', unit)}
+            targetWeight={user?.target_weight || null}
+            onTargetWeightChange={(weight) => handleUpdateProfile('target_weight', weight?.toString() || null)}
+          />
+        </div>
       </div>
     </div>
   );

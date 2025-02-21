@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
-import { useAuthStore } from '../stores/authStore';
-import { Avatar } from '../components/ui/Avatar';
-import { Toast } from '../components/ui/Toast';
+import { useAuthStore } from '../../stores/authStore';
+import { Avatar } from '../../components/ui/Avatar';
+import { Toast } from '../../components/ui/Toast';
 import { ProfileTab } from './tabs/ProfileTab';
 import { ProgressTab } from './tabs/ProgressTab';
 import { AccountTab } from './tabs/AccountTab';
 
 type Tab = 'profile' | 'progress' | 'account';
 
-export function Profile() {
+export default function Profile() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<Tab>('profile');

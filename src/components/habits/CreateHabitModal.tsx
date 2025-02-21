@@ -37,6 +37,7 @@ export function CreateHabitModal({ isOpen, onClose, onHabitCreated, category }: 
             title: title.trim(),
             description: description.trim() || null,
             category,
+            owner_id: user.id,
           },
         ])
         .select()

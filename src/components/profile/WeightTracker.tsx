@@ -44,6 +44,11 @@ export function WeightTracker({
   const [savingTarget, setSavingTarget] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Update entries when initialEntries changes
+  useEffect(() => {
+    setEntries(initialEntries);
+  }, [initialEntries]);
+
   // Load weight entries
   useEffect(() => {
     const loadEntries = async () => {
@@ -82,22 +87,51 @@ export function WeightTracker({
   };
 
   const handleTargetWeightSave = async () => {
-    if (!onTargetWeightChange || savingTarget) return;
-    
+    // Early return if no handler is provided
+    if (!onTargetWeightChange) {
+      console.error('No target weight change handler provided');
+      return;
+    }
+
+    // Early return if already saving
+    if (savingTarget) {
+      return;
+    }
+
     try {
-      setSavingTarget(true);
+      // Parse and validate the weight
       const weight = tempTargetWeight ? parseFloat(tempTargetWeight) : null;
-      
       if (weight !== null && (isNaN(weight) || weight <= 0)) {
+        console.error('Invalid weight value');
         return;
       }
-      
+
+      // Set saving state
+      setSavingTarget(true);
+      addLog('Saving target weight...', 'info');
+
+      // Save the weight
       await onTargetWeightChange(weight);
+      
+      // Close the edit mode on success
       setEditingTarget(false);
+      addLog('Target weight saved successfully', 'success');
     } catch (err) {
       console.error('Failed to save target weight:', err);
+      addLog('Failed to save target weight', 'error');
     } finally {
+      // Always reset the saving state
       setSavingTarget(false);
+    }
+  };
+
+  const handleAddEntry = async () => {
+    try {
+      await onAddEntry(newWeight, selectedDate);
+      setNewWeight('');
+      setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
+    } catch {
+      // Error will be handled by parent component
     }
   };
 
@@ -236,7 +270,7 @@ export function WeightTracker({
           className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
         <button
-          onClick={() => onAddEntry(newWeight, selectedDate)}
+          onClick={handleAddEntry}
           disabled={!newWeight}
           className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >

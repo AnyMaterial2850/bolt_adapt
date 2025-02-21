@@ -26,6 +26,7 @@ export interface Profile {
   mobile_number: string | null;
   mobile_country_code: string | null;
   preferred_weight_unit: 'kg' | 'lbs' | null;
+  target_weight: number | null;
   goal_what: string | null;
   goal_why: string | null;
   goal_timeline: string | null;
