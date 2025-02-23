@@ -42,7 +42,7 @@ export async function checkDatabaseHealth(): Promise<HealthCheckResult> {
       'profiles',
       'habits',
       'user_habits',
-      'habit_completions',
+      'habit_comp_track',
       'habit_images',
       'chat_messages'
     ];

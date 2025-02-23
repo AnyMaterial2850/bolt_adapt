@@ -1,11 +1,10 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { useNavigate } from 'react-router-dom';
 import { Tabs } from './ui/Tabs';
 import { HabitCategories } from './habits/HabitCategories';
 import { BottomNav } from './ui/BottomNav';
 import { DateNavigation } from './plan/DateNavigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { HabitCategory } from '../types/database';
 import { useDebugStore } from '../stores/debugStore';
 import { Avatar } from './ui/Avatar';
@@ -19,6 +18,31 @@ export function Layout() {
   const [activeCategory, setActiveCategory] = useState<HabitCategory>('move');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { isVisible: showDebug, setVisible: setShowDebug } = useDebugStore();
+
+  // Sync tab state with route
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === '/') {
+      // Don't override the active tab on the home page
+      // This allows the tab selection to work normally
+      return;
+    } else if (path.startsWith('/habits/')) {
+      setActiveTab('habits');
+    }
+  }, [location.pathname]);
+
+  const handleTabChange = (tab: string) => {
+    // First update the active tab
+    setActiveTab(tab);
+    
+    // Then navigate if needed
+    if (location.pathname.startsWith('/habits/')) {
+      // Use a small timeout to ensure the tab updates before navigation
+      setTimeout(() => {
+        navigate('/');
+      }, 0);
+    }
+  };
 
   const tabs = [
     { id: 'goal', label: 'Goal' },
@@ -90,7 +114,7 @@ export function Layout() {
             <Tabs
               tabs={tabs}
               activeTab={activeTab}
-              onChange={setActiveTab}
+              onChange={handleTabChange}
             />
             
             {activeTab === 'habits' && (
@@ -110,19 +134,19 @@ export function Layout() {
         </div>
       </header>
 
-      {/* Header Spacer */}
-      <div style={{ height: `${getHeaderHeight()}px` }} />
-
       {/* Main Content */}
-      <main className="max-w-lg mx-auto px-4 pb-24">
-        <Outlet context={{ activeTab, activeCategory, selectedDate, setSelectedDate }} />
+      <main
+        className="mx-auto max-w-lg px-4 pb-24"
+        style={{ paddingTop: `${getHeaderHeight()}px` }}
+      >
+        <Outlet context={{ activeTab, activeCategory, selectedDate }} />
       </main>
 
       {/* Bottom Navigation */}
       <BottomNav />
 
       {/* Debug Panel */}
-      {process.env.NODE_ENV === 'development' && <DebugPanel />}
+      {showDebug && <DebugPanel />}
     </div>
   );
 }

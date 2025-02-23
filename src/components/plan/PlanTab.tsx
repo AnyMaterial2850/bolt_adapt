@@ -128,7 +128,7 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
   }, [completions, scheduledHabits, selectedDate]);
 
   return (
-    <div className="space-y-6 pt-8">
+    <div className="space-y-6 pt-8 my-2">
       <div className="space-y-2">
         <p className="text-sm text-gray-600 px-1">
           When you have completed your habit, make sure to track it

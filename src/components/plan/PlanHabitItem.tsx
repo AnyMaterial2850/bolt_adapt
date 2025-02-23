@@ -18,7 +18,6 @@ interface PlanHabitItemProps {
   onToggle: () => void;
   onReminderToggle: (newReminderTime: string | null) => Promise<void>;
   disabled?: boolean;
-  selectedDate: Date;
 }
 
 export function PlanHabitItem({ 
@@ -29,7 +28,6 @@ export function PlanHabitItem({
   onToggle,
   onReminderToggle,
   disabled,
-  selectedDate
 }: PlanHabitItemProps) {
   const [isUpdatingReminder, setIsUpdatingReminder] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
@@ -194,7 +192,7 @@ export function PlanHabitItem({
           <div className="flex items-start gap-4 min-w-0">
             <div className="w-10 h-10 flex-shrink-0 rounded-full bg-primary-100 flex items-center justify-center">
               <HabitIcon 
-                icon={habit.habit?.icon} 
+                icon={habit.habit?.icon || ""} 
                 category={habit.habit?.category || 'move'} 
                 className="text-primary-500"
               />

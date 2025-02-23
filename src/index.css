@@ -13,10 +13,10 @@
 
 @keyframes slide-in-from-bottom {
   from {
-    transform: translateY(1rem) translateX(-50%);
+    transform: translateY(1rem);
   }
   to {
-    transform: translateY(0) translateX(-50%);
+    transform: translateY(0);
   }
 }
 

@@ -103,13 +103,13 @@ const loadHabits = useCallback(async () => {
                         frequency_per_day: 1,
                         active: false,
                         daily_schedules: [
-                            { day: 'Mon', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                            { day: 'Tue', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                            { day: 'Wed', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                            { day: 'Thu', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                            { day: 'Fri', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                            { day: 'Sat', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-                            { day: 'Sun', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
+                            { day: 'Mon', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
+                            { day: 'Tue', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
+                            { day: 'Wed', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
+                            { day: 'Thu', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
+                            { day: 'Fri', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
+                            { day: 'Sat', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
+                            { day: 'Sun', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
                         ],
                     }])
                     .select()
@@ -132,9 +132,11 @@ const loadHabits = useCallback(async () => {
         // Load completions for selected date
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
         const { data: completionsData, error: completionsError } = await supabase
-            .from('habit_completions')
+            .from('habit_comp_track')
             .select('*')
-            .eq('date', dateStr);
+            .eq('date', dateStr)
+            .in('user_habit_id', userHabitsData.map(h => h.id));
+
 
         if (completionsError) {
             addLog(`Failed to load completions: ${completionsError.message}`, 'error');
@@ -143,7 +145,12 @@ const loadHabits = useCallback(async () => {
 
         const completionsMap: Record<string, boolean> = {};
         completionsData?.forEach(completion => {
-            const key = `${completion.user_habit_id}-${completion.date}-${completion.event_time}`;
+            // Format evt_time to match the format used in the UI (HH:mm)
+            const timeStr = completion.evt_time.split(' ')[0]; // Extract time part before AM/PM
+            const [hours, minutes] = timeStr.split(':');
+            const formattedTime = `${hours.padStart(2, '0')}:${minutes}`;
+            
+            const key = `${completion.user_habit_id}-${completion.date}-${formattedTime}`;
             completionsMap[key] = true;
         });
         setCompletions(completionsMap);
@@ -207,6 +214,19 @@ const loadHabits = useCallback(async () => {
     }
   };
 
+  function formatToSupabaseTime(timeString: string) {
+    // Convert 24-hour format to 12-hour format for storage
+    const [hours, minutes] = timeString.split(':');
+    const date = new Date();
+    date.setHours(Number(hours), Number(minutes), 0);
+  
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  }
+
   const handleToggleCompletion = async (habitId: string, date: Date, eventTime: string) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const completionKey = `${habitId}-${dateStr}-${eventTime}`;
@@ -222,32 +242,30 @@ const loadHabits = useCallback(async () => {
       });
       return;
     }
-
     const isCompleted = completions[completionKey];
-
     try {
       setUpdatingCompletion(completionKey);
 
       if (!isCompleted) {
         // First try to delete any existing completion for this habit and date
         await supabase
-          .from('habit_completions')
+          .from('habit_comp_track')
           .delete()
           .eq('user_habit_id', habitId)
           .eq('date', dateStr)
-          .eq('event_time', eventTime);
+          .eq('evt_time', formatToSupabaseTime(eventTime));
 
-        // Then add the new completion
         const { error } = await supabase
-          .from('habit_completions')
+          .from('habit_comp_track')
           .insert([{
-            user_habit_id: habitId,
-            date: dateStr,
-            event_time: eventTime,
+            "user_habit_id": habitId,
+            "date": dateStr,
+            "evt_time": formatToSupabaseTime(eventTime),
+            "completed_at": new Date().toISOString()
           }]);
 
         if (error) throw error;
-
+        
         // Update local state
         setCompletions(prev => ({
           ...prev,
@@ -261,11 +279,11 @@ const loadHabits = useCallback(async () => {
       } else {
         // Remove completion
         const { error } = await supabase
-          .from('habit_completions')
+          .from('habit_comp_track')
           .delete()
           .eq('user_habit_id', habitId)
           .eq('date', dateStr)
-          .eq('event_time', eventTime);
+          .eq('evt_time', formatToSupabaseTime(eventTime));
 
         if (error) throw error;
 
@@ -316,7 +334,7 @@ const loadHabits = useCallback(async () => {
       {activeTab === 'goal' ? (
         <>
           {/* Goal Card */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden my-4">
             <div className="p-4">
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">

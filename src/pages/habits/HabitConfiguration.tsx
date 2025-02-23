@@ -487,7 +487,7 @@ export function HabitConfiguration() {
   const selectedDayName = DAYS_OF_WEEK.find(d => d.id === selectedDay)?.full;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 my-6">
       <div className="flex items-center space-x-3 mb-6">
         <button
           onClick={handleBack}
