@@ -209,6 +209,19 @@ export function HabitConfiguration() {
   const handleSave = async () => {
     if (!habit || isSaving) return;
 
+    // Check for duplicate schedules
+    for (const daySchedule of dailySchedules) {
+        const times = daySchedule.schedules.map(schedule => schedule.event_time);
+        const hasDuplicates = times.some((time, index) => times.indexOf(time) !== index);
+        if (hasDuplicates) {
+            setToast({
+                message: 'Duplicate event times found. Please ensure all times are unique.',
+                type: 'error'
+            });
+            return;
+        }
+    }
+
     try {
       setIsSaving(true);
       addLog('Saving habit changes...', 'info');
@@ -216,23 +229,9 @@ export function HabitConfiguration() {
       // Validate schedules
       for (const daySchedule of dailySchedules) {
         if (daySchedule.active && (!daySchedule.schedules || daySchedule.schedules.length === 0)) {
-          const error = `${daySchedule.day} must have at least one schedule when active`;
+          const error = 'Schedules cannot be empty for active days.';
           addLog(error, 'error');
           throw new Error(error);
-        }
-        for (const schedule of daySchedule.schedules) {
-          if (!schedule.event_time.match(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/)) {
-            const error = 'Invalid time format';
-            addLog(error, 'error');
-            throw new Error(error);
-          }
-          if (schedule.reminder_time) {
-            const error = validateReminderTime(schedule.event_time, schedule.reminder_time);
-            if (error) {
-              addLog(error, 'error');
-              throw new Error(error);
-            }
-          }
         }
       }
 
@@ -443,6 +442,22 @@ export function HabitConfiguration() {
         });
         return;
       }
+    }
+
+    if (field === 'event_time') {
+        const isDuplicate = dailySchedules
+            .find(s => s.day === dayId)?.schedules
+            .find(s => s.event_time === value);
+        if (isDuplicate) {
+           setToast(
+                {
+                    message: 'This time is already scheduled. Please choose a different time.',
+                    type: 'error'
+                }
+            ,
+           )
+            return;
+        }
     }
 
     setDailySchedules(prev => 
@@ -805,7 +820,6 @@ export function HabitConfiguration() {
         </div>
       </Modal>
 
-      {/* ```tsx
       {/* Icon Picker Modal */}
       <Modal
         isOpen={showIconPicker}
