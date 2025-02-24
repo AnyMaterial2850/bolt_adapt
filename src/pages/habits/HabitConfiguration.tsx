@@ -12,6 +12,7 @@ import type { UserHabit, HabitCategory } from '../../types/database';
 import { useDebugStore } from '../../stores/debugStore';
 import { HabitIcon } from '../../components/habits/HabitIcon';
 import { parse } from 'date-fns';
+import useAppStore from '../../stores/appStore';
 
 const DAYS_OF_WEEK = [
   { id: 'Mon', label: 'M', full: 'Monday' },
@@ -51,9 +52,14 @@ export function HabitConfiguration() {
   const [selectedDay, setSelectedDay] = useState<string>('Mon');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState(false);
+
+
+  const { showConfirmDialog, setShowConfirmDialog, setPendingNavigation
+    , hasUnsavedChanges, setHasUnsavedChanges,  nextNavigationPage, setActiveTab,setNextNavigationPage
+
+   } =
+    useAppStore();
+
   const [animatingDays, setAnimatingDays] = useState<string[]>([]);
 
   // Custom habit editing state
@@ -146,18 +152,18 @@ export function HabitConfiguration() {
       habitIcon !== habit.habit?.icon;
     
     setHasUnsavedChanges(hasScheduleChanges || hasHabitChanges);
-  }, [habit, isActive, dailySchedules, habitTitle, habitDescription, habitCategory, habitIcon]);
+  }, [habit, isActive, dailySchedules, habitTitle, habitDescription, habitCategory, habitIcon, setHasUnsavedChanges]);
 
   const handleBack = () => {
     if (hasUnsavedChanges) {
       setShowConfirmDialog(true);
       setPendingNavigation(true);
+      setNextNavigationPage(-1);
     } else {
       navigate(-1);
     }
   };
 
- 
 
   const handleToggleActive = async (newActiveState: boolean) => {
     if (!habit || isSaving) return;
@@ -296,11 +302,14 @@ export function HabitConfiguration() {
 
       setHasUnsavedChanges(false);
 
-      if (pendingNavigation) {
-        setTimeout(() => {
-          navigate(-1);
-        }, 1000);
-      }
+    setShowConfirmDialog(false);
+    setPendingNavigation(false);
+    if (nextNavigationPage === -1){
+        navigate(-1);
+        return;
+    }
+    navigate('/')
+    setActiveTab(nextNavigationPage as string);
     } catch (err) {
       console.error('Error saving habit:', err);
       addLog(`Failed to save changes: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
@@ -361,6 +370,7 @@ export function HabitConfiguration() {
       )
     );
   };
+
 
   const addSchedule = (dayId: string) => {
     setDailySchedules(prev => 
@@ -683,7 +693,7 @@ export function HabitConfiguration() {
                             type="time"
                             value={schedule.event_time}
                             onChange={e => updateSchedule(selectedDay, index, 'event_time', e.target.value)}
-                            className="px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent w-full"
+                            className="px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent w-full my-3"
                             style={{
                               WebkitAppearance: 'none',
                               MozAppearance: 'textfield',
@@ -712,10 +722,10 @@ export function HabitConfiguration() {
                             </label>
                           </div>
                           
-                          {schedule.reminder_time !== null && (
+                          {(
                             <input
                               type="time"
-                              value={schedule.reminder_time}
+                              value={schedule?.reminder_time ?? ''}
                               onChange={e => updateSchedule(selectedDay, index, 'reminder_time', e.target.value)}
                               className="px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent w-full"
                               style={{
@@ -775,7 +785,12 @@ export function HabitConfiguration() {
               onClick={() => {
                 setShowConfirmDialog(false);
                 setPendingNavigation(false);
-                navigate(-1);
+                if (nextNavigationPage === -1){
+                    navigate(-1);
+                    return;
+                }
+                navigate('/')
+                setActiveTab(nextNavigationPage as string);
               }}
             >
               Discard

@@ -9,12 +9,15 @@ import type { HabitCategory } from '../types/database';
 import { useDebugStore } from '../stores/debugStore';
 import { Avatar } from './ui/Avatar';
 import { DebugPanel } from './DebugPanel';
+import useAppStore from '../stores/appStore';
 
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('habits');
+  const { hasUnsavedChanges, setShowConfirmDialog, setPendingNavigation, setNextNavigationPage, activeTab,setActiveTab, setHasUnsavedChanges } =
+    useAppStore();
+  
   const [activeCategory, setActiveCategory] = useState<HabitCategory>('move');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { isVisible: showDebug, setVisible: setShowDebug } = useDebugStore();
@@ -29,9 +32,26 @@ export function Layout() {
     } else if (path.startsWith('/habits/')) {
       setActiveTab('habits');
     }
-  }, [location.pathname]);
+  }, [location.pathname, setActiveTab]);
+
+
+  useEffect(() => {
+    setPendingNavigation(false);
+    setShowConfirmDialog(false);
+    setNextNavigationPage(-1);
+    setHasUnsavedChanges(false);
+  }, [activeTab, setShowConfirmDialog, setNextNavigationPage, setHasUnsavedChanges, setPendingNavigation]);
 
   const handleTabChange = (tab: string) => {
+    
+    if(hasUnsavedChanges) {
+        setShowConfirmDialog(true);
+        setPendingNavigation(true);
+        setNextNavigationPage(tab);
+        return
+    }
+
+
     // First update the active tab
     setActiveTab(tab);
     
@@ -42,6 +62,8 @@ export function Layout() {
         navigate('/');
       }, 0);
     }
+
+
   };
 
   const tabs = [
