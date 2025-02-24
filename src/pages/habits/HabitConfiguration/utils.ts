@@ -1,6 +1,8 @@
 import { parse } from 'date-fns';
 
 export function validateReminderTime(eventTime: string, reminderTime: string): string | null {
+
+    if (!reminderTime) return null;
   // Validate time format (HH:MM)
   if (!reminderTime.match(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/)) {
     return 'Invalid time format. Expected HH:MM';

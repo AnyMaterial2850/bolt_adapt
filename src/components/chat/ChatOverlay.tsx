@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Send, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../stores/authStore';
@@ -26,6 +26,39 @@ export function ChatOverlay() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+
+
+  const loadMessages = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      addLog('Loading chat messages...', 'info', { 
+        component: 'ChatOverlay',
+        data: { userId: user?.id }
+      });
+
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      setMessages(data || []);
+      addLog(`Loaded ${data?.length || 0} messages`, 'success', {
+        component: 'ChatOverlay',
+        data: { messageCount: data?.length }
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to load messages');
+      addLog('Failed to load messages', 'error', {
+        component: 'ChatOverlay',
+        error
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [addLog, setIsLoading, setMessages, user?.id]);
 
   useEffect(() => {
     if (user) {
@@ -61,7 +94,7 @@ export function ChatOverlay() {
       }
       addLog('Chat overlay unmounted', 'debug', { component: 'ChatOverlay' });
     };
-  }, [user, addLog]);
+  }, [user, addLog, loadMessages]);
 
   useEffect(() => {
     scrollToBottom();
@@ -79,37 +112,6 @@ export function ChatOverlay() {
     close();
   };
 
-  const loadMessages = async () => {
-    try {
-      setIsLoading(true);
-      addLog('Loading chat messages...', 'info', { 
-        component: 'ChatOverlay',
-        data: { userId: user?.id }
-      });
-
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      setMessages(data || []);
-      addLog(`Loaded ${data?.length || 0} messages`, 'success', {
-        component: 'ChatOverlay',
-        data: { messageCount: data?.length }
-      });
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to load messages');
-      addLog('Failed to load messages', 'error', {
-        component: 'ChatOverlay',
-        error
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

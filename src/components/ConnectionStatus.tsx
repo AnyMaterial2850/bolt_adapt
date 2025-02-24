@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Wifi, WifiOff } from 'lucide-react';
+import { WifiOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useDebugStore } from '../stores/debugStore';
 
@@ -31,7 +31,7 @@ export function ConnectionStatus() {
         } else if (!wasConnected) {
           addLog('Database connection restored', 'success');
         }
-      } catch (err) {
+      } catch{
         setIsConnected(false);
         addLog('Failed to check database connection', 'error');
       }

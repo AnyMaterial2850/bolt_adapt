@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, Calendar, AlertCircle } from 'lucide-react';
+import { Clock, AlertCircle } from 'lucide-react';
 import { Input } from '../ui/Input';
 import type { HabitFrequency, HabitFrequencyDetails } from '../../types/database';
 

@@ -70,62 +70,27 @@ const loadHabits = useCallback(async () => {
         // Load all habits and create user habits if they don't exist
         const { data: habits, error: habitsError } = await supabase
             .from('habits')
-            .select('*');
+            .select('*')
+
 
         if (habitsError) {
+            console.error("Error loading habits:", habitsError);
             addLog(`Failed to load habits: ${habitsError.message}`, 'error');
             throw habitsError;
         }
 
         addLog(`Found ${habits?.length || 0} habits`, 'success');
 
-        // For each habit, get or create a user_habit
-        const userHabitsPromises = habits.map(async (habit) => {
-            const { data: existingUserHabit, error: userHabitError } = await supabase
-                .from('user_habits')
-                .select('*')
-                .eq('user_id', user.id)
-                .eq('habit_id', habit.id)
-                .single();
+        const { data: userHabitsData, error: userHabitsError } = await supabase
+            .from('user_habits')
+            .select('*, habit:habits(*)')
+            .in('habit_id', habits.map(h => h.id));
 
-            if (userHabitError && userHabitError.code !== 'PGRST116') {
-                addLog(`Error checking user habit: ${userHabitError.message}`, 'error');
-                throw userHabitError;
-            }
+        if (userHabitsError) {
+            console.error("Error fetching user habits:", userHabitsError);
+            throw userHabitsError;
+        }
 
-            if (!existingUserHabit) {
-                addLog(`Creating user habit for habit ${habit.id}`, 'info');
-                const { data: newUserHabit, error: createError } = await supabase
-                    .from('user_habits')
-                    .insert([{
-                        user_id: user.id,
-                        habit_id: habit.id,
-                        frequency_per_day: 1,
-                        active: false,
-                        daily_schedules: [
-                            { day: 'Mon', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
-                            { day: 'Tue', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
-                            { day: 'Wed', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
-                            { day: 'Thu', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
-                            { day: 'Fri', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
-                            { day: 'Sat', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
-                            { day: 'Sun', active: true, schedules: [{ evt_time: '09:00', reminder_time: null }] },
-                        ],
-                    }])
-                    .select()
-                    .single();
-
-                if (createError) {
-                    addLog(`Failed to create user habit: ${createError.message}`, 'error');
-                    throw createError;
-                }
-                return { ...newUserHabit, habit };
-            }
-
-            return { ...existingUserHabit, habit };
-        });
-
-        const userHabitsData = await Promise.all(userHabitsPromises);
         addLog(`Loaded ${userHabitsData.length} user habits`, 'success');
         setUserHabits(userHabitsData);
 

@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 
 export type LogType = 'info' | 'error' | 'success' | 'warn' | 'debug';
@@ -6,6 +7,7 @@ interface DebugLog {
   message: string;
   type: LogType;
   timestamp: number;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   details?: any;
   component?: string;
   stack?: string;
@@ -14,11 +16,15 @@ interface DebugLog {
 interface DebugState {
   logs: DebugLog[];
   isVisible: boolean;
-  addLog: (message: string, type: LogType, details?: { component?: string; error?: Error; data?: any }) => void;
+  addLog: (message: string, type: LogType, details?: { component?: string; error?: Error; 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data?: any 
+}) => void;
   clearLogs: () => void;
   setVisible: (visible: boolean) => void;
   toggle: () => void;
 }
+
 
 export const useDebugStore = create<DebugState>((set) => ({
   logs: [],

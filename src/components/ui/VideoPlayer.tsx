@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useAuthStore } from '../../stores/authStore';
+import { useDebugStore } from '../../stores/debugStore';
 
 interface VideoPlayerProps {
   url: string;
@@ -7,7 +7,7 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({ url, title }: VideoPlayerProps) {
-  const { addDebugLog } = useAuthStore();
+  const { addLog } = useDebugStore();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const retryCount = useRef(0);
@@ -18,19 +18,19 @@ export function VideoPlayer({ url, title }: VideoPlayerProps) {
   // Extract video ID from various YouTube URL formats
   const getYouTubeId = (url: string) => {
     try {
-      addDebugLog(`Parsing YouTube URL: ${url}`, 'info');
+      addLog(`Parsing YouTube URL: ${url}`, 'info');
       
       // Handle youtube.com/shorts URLs
       if (url.includes('youtube.com/shorts/')) {
         const id = url.split('shorts/')[1]?.split(/[#?]/)[0];
-        addDebugLog(`Extracted Shorts ID: ${id}`, 'info');
+        addLog(`Extracted Shorts ID: ${id}`, 'info');
         return id;
       }
       
       // Handle youtu.be URLs
       if (url.includes('youtu.be/')) {
         const id = url.split('youtu.be/')[1]?.split(/[#?]/)[0];
-        addDebugLog(`Extracted youtu.be ID: ${id}`, 'info');
+        addLog(`Extracted youtu.be ID: ${id}`, 'info');
         return id;
       }
       
@@ -38,14 +38,14 @@ export function VideoPlayer({ url, title }: VideoPlayerProps) {
       const urlObj = new URL(url);
       if (urlObj.hostname.includes('youtube.com')) {
         const id = urlObj.searchParams.get('v');
-        addDebugLog(`Extracted standard YouTube ID: ${id}`, 'info');
+        addLog(`Extracted standard YouTube ID: ${id}`, 'info');
         return id;
       }
       
-      addDebugLog('No valid YouTube ID found', 'error');
+      addLog('No valid YouTube ID found', 'error');
       return null;
     } catch (err) {
-      addDebugLog(`Error parsing YouTube URL: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      addLog(`Error parsing YouTube URL: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
       return null;
     }
   };
@@ -109,13 +109,13 @@ export function VideoPlayer({ url, title }: VideoPlayerProps) {
   const handleIframeLoad = () => {
     setIsLoading(false);
     setError(null);
-    addDebugLog('Video loaded successfully', 'success');
+    addLog('Video loaded successfully', 'success');
   };
 
   const handleIframeError = () => {
     setIsLoading(false);
     setError('Failed to load video');
-    addDebugLog('Video failed to load', 'error');
+    addLog('Video failed to load', 'error');
     
     // Automatically retry on error
     if (retryCount.current < maxRetries) {

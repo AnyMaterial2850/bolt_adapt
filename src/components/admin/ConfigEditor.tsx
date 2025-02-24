@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, ChevronDown, ArrowLeftRight, Globe } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Globe } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface ConfigEditorProps {

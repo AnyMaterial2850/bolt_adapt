@@ -26,7 +26,7 @@ export function EditableField({ value, placeholder, onSave, type = 'text', patte
     try {
       await onSave(editValue);
       setIsEditing(false);
-    } catch (err) {
+    } catch {
       setEditValue(value);
     } finally {
       setIsSaving(false);

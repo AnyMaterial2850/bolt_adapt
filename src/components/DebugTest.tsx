@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 
 export function DebugTest() {
   const { addLog } = useDebugStore();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [testData, setTestData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

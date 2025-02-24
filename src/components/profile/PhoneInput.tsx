@@ -33,7 +33,7 @@ export function PhoneInput({ value, countryCode, onSave }: PhoneInputProps) {
     try {
       await onSave(number, normalizedCode);
       setIsEditing(false);
-    } catch (err) {
+    } catch{
       setCode(countryCode || '');
       setNumber(value || '');
     } finally {

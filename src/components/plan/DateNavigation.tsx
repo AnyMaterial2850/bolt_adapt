@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, addDays, startOfWeek, isSameDay, isAfter, startOfDay, isBefore } from 'date-fns';
+import { format, addDays, startOfWeek, isSameDay, startOfDay, isBefore } from 'date-fns';
 
 interface DateNavigationProps {
   selectedDate: Date;

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect , useCallback} from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, Plus, Trash2, Copy, Search, Bell, BellOff, Clock, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Copy, Search} from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
@@ -66,42 +66,8 @@ export function HabitConfiguration() {
   const [iconResults, setIconResults] = useState<string[]>([]);
   const [loadingIcons, setLoadingIcons] = useState(false);
 
-  useEffect(() => {
-    if (!user || !habitId) {
-      addLog('No user or habit ID found, redirecting...', 'error');
-      navigate(-1);
-      return;
-    }
 
-    loadHabit();
-  }, [user, habitId, navigate]);
-
-  useEffect(() => {
-    if (!habit) return;
-    
-    const hasScheduleChanges = 
-      isActive !== habit.active ||
-      JSON.stringify(dailySchedules) !== JSON.stringify(habit.daily_schedules);
-
-    const hasHabitChanges = 
-      habitTitle !== habit.habit?.title ||
-      habitDescription !== (habit.habit?.description || '') ||
-      habitCategory !== habit.habit?.category ||
-      habitIcon !== habit.habit?.icon;
-    
-    setHasUnsavedChanges(hasScheduleChanges || hasHabitChanges);
-  }, [habit, isActive, dailySchedules, habitTitle, habitDescription, habitCategory, habitIcon]);
-
-  const handleBack = () => {
-    if (hasUnsavedChanges) {
-      setShowConfirmDialog(true);
-      setPendingNavigation(true);
-    } else {
-      navigate(-1);
-    }
-  };
-
-  const loadHabit = async () => {
+  const loadHabit = useCallback(async () => {
     try {
       setLoading(true);
       addLog('Loading habit configuration...', 'info');
@@ -155,7 +121,43 @@ export function HabitConfiguration() {
     } finally {
       setLoading(false);
     }
+  }, [habitId, navigate, addLog, setHabit, setIsActive, setHabitTitle, setHabitDescription, setHabitCategory, setHabitIcon, setDailySchedules, setLoading]);
+  useEffect(() => {
+    if (!user || !habitId) {
+      addLog('No user or habit ID found, redirecting...', 'error');
+      navigate(-1);
+      return;
+    }
+
+    loadHabit();
+  }, [user, habitId, navigate, addLog, loadHabit]);
+
+  useEffect(() => {
+    if (!habit) return;
+    
+    const hasScheduleChanges = 
+      isActive !== habit.active ||
+      JSON.stringify(dailySchedules) !== JSON.stringify(habit.daily_schedules);
+
+    const hasHabitChanges = 
+      habitTitle !== habit.habit?.title ||
+      habitDescription !== (habit.habit?.description || '') ||
+      habitCategory !== habit.habit?.category ||
+      habitIcon !== habit.habit?.icon;
+    
+    setHasUnsavedChanges(hasScheduleChanges || hasHabitChanges);
+  }, [habit, isActive, dailySchedules, habitTitle, habitDescription, habitCategory, habitIcon]);
+
+  const handleBack = () => {
+    if (hasUnsavedChanges) {
+      setShowConfirmDialog(true);
+      setPendingNavigation(true);
+    } else {
+      navigate(-1);
+    }
   };
+
+ 
 
   const handleToggleActive = async (newActiveState: boolean) => {
     if (!habit || isSaving) return;
@@ -277,7 +279,8 @@ export function HabitConfiguration() {
       });
 
       // Update local state
-      setHabit(prev => prev ? {
+      setHabit(prev => prev ? 
+        {
         ...prev,
         active: isActive,
         daily_schedules: dailySchedules,
@@ -287,7 +290,8 @@ export function HabitConfiguration() {
           description: habitDescription || null,
           category: habitCategory,
           icon: habitIcon,
-        } : null,
+        } 
+        : undefined
       } : null);
 
       setHasUnsavedChanges(false);

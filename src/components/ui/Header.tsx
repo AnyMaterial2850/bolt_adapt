@@ -2,12 +2,7 @@ import { Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
-interface HeaderProps {
-  showBack?: boolean;
-  title?: string;
-}
-
-export function Header({ showBack, title }: HeaderProps) {
+export function Header() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 

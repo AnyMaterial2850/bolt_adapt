@@ -27,7 +27,7 @@ export function HabitItem({ habit, onToggle }: HabitItemProps) {
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 flex-shrink-0 rounded-full bg-primary-100 flex items-center justify-center">
           <HabitIcon 
-            icon={habit.habit?.icon} 
+            icon={habit.habit?.icon || ''} 
             category={habit.habit?.category || 'move'} 
             className="text-primary-500"
           />
