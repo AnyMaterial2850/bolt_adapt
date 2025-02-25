@@ -6,8 +6,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
       registerType: 'autoUpdate',
+      injectRegister: false,
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      srcDir: 'public',
+      filename: 'service-worker.js',
       manifest: {
         name: 'ADAPT Health',
         short_name: 'ADAPT',

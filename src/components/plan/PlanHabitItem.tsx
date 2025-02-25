@@ -9,6 +9,7 @@ import { Modal } from '../ui/Modal';
 import { HabitContent } from '../habits/HabitContent';
 import { supabase } from '../../lib/supabase';
 import { useDebugStore } from '../../stores/debugStore';
+import { requestNotificationPermission } from '../../lib/notification';
 
 interface PlanHabitItemProps {
   habit: UserHabit;
@@ -76,6 +77,9 @@ export function PlanHabitItem({
           })
           .eq('id', habit.id);
 
+
+
+
         if (updateError) throw updateError;
 
         await onReminderToggle(null);
@@ -139,6 +143,10 @@ export function PlanHabitItem({
       setIsUpdatingReminder(true);
       addLog('Setting reminder...', 'info');
 
+
+        // request for notification permission
+        await requestNotificationPermission();
+
       // Update daily_schedules with new reminder time
       const updatedSchedules = habit.daily_schedules.map(schedule => ({
         ...schedule,
@@ -148,6 +156,8 @@ export function PlanHabitItem({
             : slot
         )
       }));
+
+      console.log({updatedSchedules})
 
       const { error: updateError } = await supabase
         .from('user_habits')
@@ -171,7 +181,7 @@ export function PlanHabitItem({
       setError(message);
       addLog(`Failed to set reminder: ${message}`, 'error');
       setToast({
-        message: 'Failed to set reminder',
+        message:  message,
         type: 'error'
       });
     } finally {

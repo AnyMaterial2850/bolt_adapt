@@ -63,7 +63,7 @@ enroll_enabled = false
 verify_enabled = false
 
 [auth.email]
-enable_signup = false
+enable_signup = true
 
 [auth.email.template]
 

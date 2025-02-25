@@ -12,3 +12,12 @@ service_role key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZ
    S3 Access Key: 625729a08b95bf1b7ff351a663f3a23c
    S3 Secret Key: 850181e4652dd023b7a98c58ae0d2d34bd487ee0cc3254aed6eda37307425907
        S3 Region: local
+
+
+
+
+Public Key:
+BK2WIdI4-lPgYbaQkmnQe9pSQxuh2MkP6DzX0bL8Vuv23715KAAYGcXm-qXNuNPXXTnUzRRtz977DYOoPg6ans8
+
+Private Key:
+rzXgwkLXDc1AnwC5HM56brXnRodfb8RGcNvf4CUDRag
