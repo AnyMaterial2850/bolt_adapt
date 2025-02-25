@@ -1,3 +1,6 @@
+import { precacheAndRoute } from 'workbox-precaching';
+precacheAndRoute(self.__WB_MANIFEST);
+
 const CACHE_NAME = 'Adapt-cache-v1';
 
 // Add event listeners for the service worker lifecycle
