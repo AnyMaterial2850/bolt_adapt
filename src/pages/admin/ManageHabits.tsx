@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { supabase } from '../../lib/supabase';
+import { useHabitStore } from '../../stores/habitStore';
 import { Button } from '../../components/ui/Button';
 import type { Habit, HabitCategory } from '../../types/database';
-import { useDebugStore } from '../../stores/debugStore';
-import { HabitForm, HabitFormData } from '../../components/admin/HabitForm';
+import { HabitForm } from '../../components/admin/HabitForm';
+import type { HabitFormData } from '../../utils/types';
 import { CategoryFilter } from '../../components/admin/CategoryFilter';
 import { HabitTable } from '../../components/admin/HabitTable';
 import { AdminLayout } from '../../components/admin/AdminLayout';
@@ -13,15 +13,24 @@ import { Toast } from '../../components/ui/Toast';
 
 export function ManageHabits() {
   const { user } = useAuthStore();
-  const { addLog } = useDebugStore();
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { 
+    habits, 
+    loadingHabits, 
+    habitsError, 
+    toast, 
+    setToast,
+    loadHabits, 
+    createHabit, 
+    updateHabit, 
+    deleteHabit 
+  } = useHabitStore();
+  
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<HabitCategory | 'all'>('all');
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calculate category counts
   const categoryCounts = useMemo(() => {
@@ -42,267 +51,43 @@ export function ManageHabits() {
 
   useEffect(() => {
     loadHabits();
-  }, []);
-
-  const loadHabits = async () => {
-    try {
-      setLoading(true);
-      addLog('Loading habits...', 'info');
-
-      const { data, error } = await supabase
-        .from('habits')
-        .select(`
-          *,
-          habit_images (
-            id,
-            path,
-            filename,
-            size,
-            created_at
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setHabits(data || []);
-      addLog(`Loaded ${data?.length || 0} habits`, 'success');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load habits';
-      setError(message);
-      addLog(message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [loadHabits]);
 
   const handleCreateHabit = async (formData: HabitFormData) => {
     if (!user) return;
-
+    setIsSubmitting(true);
+    
     try {
-      addLog('Creating new habit...', 'info');
-      
-      const filteredGoDeeper = formData.go_deeper_titles.map((title, index) => ({
-        title,
-        url: formData.go_deeper_urls[index] || '',
-      })).filter(item => item.title && item.url);
-
-      // Filter out invalid bottom line items
-      const validBottomLineItems = formData.bottom_line_items.filter(item => 
-        item.title && item.type && item.url
-      );
-
-      const habitData = {
-        title: formData.title.trim(),
-        description: formData.description.trim() || null,
-        category: formData.category,
-        icon: formData.icon || null,
-        content_type: formData.content_type,
-        content_url: formData.content_url || null,
-        content_title: formData.content_title || null,
-        content_description: formData.content_description || null,
-        content_thumbnail_url: formData.content_thumbnail_url || null,
-        bottom_line_items: validBottomLineItems,
-        go_deeper_titles: filteredGoDeeper.map(item => item.title),
-        go_deeper_urls: filteredGoDeeper.map(item => item.url),
-        owner_id: user.id
-      };
-
-      // Create habit first
-      const { data: habit, error: habitError } = await supabase
-        .from('habits')
-        .insert([habitData])
-        .select(`
-          *,
-          habit_images (
-            id,
-            path,
-            filename,
-            size,
-            created_at
-          )
-        `)
-        .single();
-
-      if (habitError) throw habitError;
-
-      // Upload images if any
-      if (formData.images && formData.images.length > 0) {
-        addLog('Uploading images...', 'info');
-        const images = await uploadImages(habit.id, formData.images);
-        habit.images = images;
+      const success = await createHabit(formData, user.id);
+      if (success) {
+        setIsCreating(false);
       }
-
-      addLog('Habit created successfully', 'success');
-      setHabits([habit, ...habits]);
-      setIsCreating(false);
-    } catch (err) {
-      console.error('Error creating habit:', err);
-      const message = err instanceof Error ? err.message : 'Failed to create habit';
-      addLog(message, 'error');
-      setError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleEditHabit = async (formData: HabitFormData) => {
-    if (!editingHabit || !user) return;
-
+    if (!editingHabit) return;
+    setIsSubmitting(true);
+    
     try {
-      addLog('Updating habit...', 'info');
-      
-      const filteredGoDeeper = formData.go_deeper_titles.map((title, index) => ({
-        title,
-        url: formData.go_deeper_urls[index] || '',
-      })).filter(item => item.title && item.url);
-
-      // Filter out invalid bottom line items
-      const validBottomLineItems = formData.bottom_line_items.filter(item => 
-        item.title && item.type && item.url
-      );
-
-      const habitData = {
-        title: formData.title.trim(),
-        description: formData.description.trim() || null,
-        category: formData.category,
-        icon: formData.icon || null,
-        content_type: formData.content_type,
-        content_url: formData.content_url || null,
-        content_title: formData.content_title || null,
-        content_description: formData.content_description || null,
-        content_thumbnail_url: formData.content_thumbnail_url || null,
-        bottom_line_items: validBottomLineItems,
-        go_deeper_titles: filteredGoDeeper.map(item => item.title),
-        go_deeper_urls: filteredGoDeeper.map(item => item.url),
-        owner_id: editingHabit.owner_id || user.id
-      };
-
-      // Update habit
-      const { data: habit, error: habitError } = await supabase
-        .from('habits')
-        .update(habitData)
-        .eq('id', editingHabit.id)
-        .select(`
-          *,
-          habit_images (
-            id,
-            path,
-            filename,
-            size,
-            created_at
-          )
-        `)
-        .single();
-
-      if (habitError) throw habitError;
-
-      // Upload new images if any
-      if (formData.images && formData.images.length > 0) {
-        addLog('Uploading new images...', 'info');
-        const images = await uploadImages(habit.id, formData.images);
-        habit.images = [...(editingHabit.images || []), ...images];
+      const success = await updateHabit(editingHabit.id, formData);
+      if (success) {
+        setIsEditing(false);
+        setEditingHabit(null);
       }
-
-      addLog('Habit updated successfully', 'success');
-      setHabits(habits.map(h => h.id === editingHabit.id ? habit : h));
-      setIsEditing(false);
-      setEditingHabit(null);
-    } catch (err) {
-      console.error('Error updating habit:', err);
-      const message = err instanceof Error ? err.message : 'Failed to update habit';
-      addLog(message, 'error');
-      setError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const uploadImages = async (habitId: string, images: File[]) => {
-    const uploadedImages = [];
-
-    for (const file of images) {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${habitId}/${crypto.randomUUID()}.${fileExt}`;
-      const filePath = `habits/${fileName}`;
-
-      // Upload file to storage
-      const { error: uploadError } = await supabase.storage
-        .from('habits')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // Insert image metadata
-      const { data: imageData, error: insertError } = await supabase
-        .from('habit_images')
-        .insert({
-          habit_id: habitId,
-          path: filePath,
-          filename: file.name,
-          size: file.size,
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        throw insertError;
-      }
-
-      uploadedImages.push(imageData);
-    }
-
-    return uploadedImages;
-  };
-
-  const handleDeleteHabit = async (habitId: string) => {
-    if (!confirm('Are you sure you want to delete this habit? This will also delete all completions and user data associated with this habit.')) {
-      return;
-    }
-
-    try {
-      addLog('Deleting habit...', 'info');
-
-      // Get the habit to be deleted
-      const habit = habits.find(h => h.id === habitId);
-      if (!habit) {
-        throw new Error('Habit not found');
-      }
-
-      // Delete all images from storage first
-      if (habit.images?.length) {
-        addLog('Deleting associated images...', 'info');
-        for (const image of habit.images) {
-          const { error: deleteError } = await supabase.storage
-            .from('habits')
-            .remove([image.path]);
-
-          if (deleteError) {
-            addLog(`Failed to delete image ${image.filename}`, 'error');
-          }
-        }
-      }
-      
-      // Delete the habit (this will cascade to user_habits and completions)
-      const { error } = await supabase
-        .from('habits')
-        .delete()
-        .eq('id', habitId);
-
-      if (error) throw error;
-
-      addLog('Habit deleted successfully', 'success');
-      setHabits(habits.filter(h => h.id !== habitId));
-      setToast({
-        message: 'Habit deleted successfully',
-        type: 'success'
-      });
-    } catch (err) {
-      console.error('Error deleting habit:', err);
-      const message = err instanceof Error ? err.message : 'Failed to delete habit';
-      addLog(message, 'error');
-      setToast({
-        message: 'Failed to delete habit. Please try again.',
-        type: 'error'
-      });
+  const confirmDeleteHabit = async () => {
+    if (!habitToDelete) return;
+    
+    const success = await deleteHabit(habitToDelete.id);
+    if (success) {
+      setHabitToDelete(null);
     }
   };
 
@@ -316,77 +101,121 @@ export function ManageHabits() {
   return (
     <AdminLayout title="Manage Habits">
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium text-gray-900">
-            {habits.length} Total Habits
-          </h2>
-          <Button
-            onClick={() => setIsCreating(!isCreating)}
-            className="flex items-center"
-            disabled={isEditing}
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Create Habit
-          </Button>
-        </div>
+        {/* Only show habit count and create button when not creating or editing */}
+        {!isCreating && !isEditing && (
+          <>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium text-gray-900">
+                {habits.length} Total Habits
+              </h2>
+              <Button
+                onClick={() => setIsCreating(true)}
+                className="flex items-center"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Create Habit
+              </Button>
+            </div>
 
-        {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-xl">
-            {error}
+            {habitsError && (
+              <div className="bg-red-50 text-red-600 p-4 rounded-xl">
+                {habitsError}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Create Habit Form */}
+        {isCreating && (
+          <div className="bg-white rounded-lg shadow">
+            <h2 className="text-lg font-medium text-gray-900 p-4 border-b">Create New Habit</h2>
+            <HabitForm
+              onSubmit={handleCreateHabit}
+              onCancel={() => setIsCreating(false)}
+              initialData={{
+                title: '',
+                description: '',
+                category: selectedCategory === 'all' ? 'eat' : selectedCategory,
+                icon: '',
+                content_type: 'video',
+                content_url: '',
+                content_title: '',
+                content_description: '',
+                content_thumbnail_url: '',
+                bottom_line_items: [{ title: '', type: 'link', url: '', description: '' }],
+                go_deeper_titles: [],
+                go_deeper_urls: [],
+                frequency: 'daily',
+                frequency_details: { daily: {} },
+                target: [],
+                unit: ''
+              }}
+              submitLabel="Create Habit"
+              isSubmitting={isSubmitting}
+            />
           </div>
         )}
 
-        {isCreating && (
-          <HabitForm
-            onSubmit={handleCreateHabit}
-            onCancel={() => setIsCreating(false)}
-            submitLabel="Create Habit"
-          />
-        )}
-
+        {/* Edit Habit Form */}
         {isEditing && editingHabit && (
-          <HabitForm
-            onSubmit={handleEditHabit}
-            onCancel={() => {
-              setIsEditing(false);
-              setEditingHabit(null);
-            }}
-            initialData={{
-              title: editingHabit.title,
-              description: editingHabit.description || '',
-              category: editingHabit.category,
-              icon: editingHabit.icon || '',
-              content_type: editingHabit.content_type,
-              content_url: editingHabit.content_url || '',
-              content_title: editingHabit.content_title || '',
-              content_description: editingHabit.content_description || '',
-              content_thumbnail_url: editingHabit.content_thumbnail_url || '',
-              bottom_line_items: editingHabit.bottom_line_items || [],
-              go_deeper_titles: editingHabit.go_deeper_titles.length ? editingHabit.go_deeper_titles : [''],
-              go_deeper_urls: editingHabit.go_deeper_urls.length ? editingHabit.go_deeper_urls : [''],
-            }}
-            submitLabel="Save Changes"
-          />
+          <div className="bg-white rounded-lg shadow">
+            <h2 className="text-lg font-medium text-gray-900 p-4 border-b">Edit Habit: {editingHabit.title}</h2>
+            <HabitForm
+              onSubmit={handleEditHabit}
+              onCancel={() => {
+                setIsEditing(false);
+                setEditingHabit(null);
+              }}
+              initialData={{
+                title: editingHabit.title,
+                description: editingHabit.description || '',
+                category: editingHabit.category,
+                icon: editingHabit.icon || '',
+                content_type: editingHabit.content_type || 'video',
+                content_url: editingHabit.content_url || '',
+                content_title: editingHabit.content_title || '',
+                content_description: editingHabit.content_description || '',
+                content_thumbnail_url: editingHabit.content_thumbnail_url || '',
+                bottom_line_items: editingHabit.bottom_line_items || [],
+                go_deeper_titles: editingHabit.go_deeper_titles.length ? editingHabit.go_deeper_titles : [],
+                go_deeper_urls: editingHabit.go_deeper_urls.length ? editingHabit.go_deeper_urls : [],
+                frequency: editingHabit.frequency || 'daily',
+                frequency_details: editingHabit.frequency_details || { daily: {} },
+                target: editingHabit.target || [],
+                unit: editingHabit.unit || ''
+              }}
+              submitLabel="Save Changes"
+              isSubmitting={isSubmitting}
+            />
+          </div>
         )}
 
-        {/* Category Filters */}
-        <CategoryFilter
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          categoryCounts={categoryCounts}
-        />
+        {/* Only show category filters and habit table when not creating or editing */}
+        {!isCreating && !isEditing && (
+          <>
+            {/* Category Filters */}
+            <CategoryFilter
+              selectedCategory={selectedCategory}
+              onCategoryChange={setSelectedCategory}
+              categoryCounts={categoryCounts}
+            />
 
-        {/* Habits Table */}
-        <HabitTable
-          habits={selectedCategory === 'all' 
-            ? habits 
-            : habits.filter(habit => habit.category === selectedCategory)
-          }
-          onEdit={startEditing}
-          onDelete={handleDeleteHabit}
-          isLoading={loading}
-          disabled={isCreating || isEditing}
-        />
+            {/* Habits Table */}
+            <HabitTable
+              habits={selectedCategory === 'all' 
+                ? habits 
+                : habits.filter(habit => habit.category === selectedCategory)
+              }
+              onEdit={startEditing}
+              onDelete={(habitId) => {
+                const habit = habits.find(h => h.id === habitId);
+                if (habit) setHabitToDelete(habit);
+              }}
+              isLoading={loadingHabits}
+              disabled={false}
+            />
+          </>
+        )}
       </div>
 
       {toast && (
@@ -395,6 +224,27 @@ export function ManageHabits() {
           type={toast.type}
           onClose={() => setToast(null)}
         />
+      )}
+
+      {habitToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full space-y-4">
+            <h3 className="text-lg font-semibold">Delete Habit</h3>
+            <p>Are you sure you want to delete <strong>{habitToDelete.title}</strong>? This will also delete all completions and user data associated with this habit.</p>
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setHabitToDelete(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={confirmDeleteHabit}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </AdminLayout>
   );

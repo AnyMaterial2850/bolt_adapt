@@ -16,24 +16,33 @@ export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
   const [pillStyle, setPillStyle] = useState({ left: 0, width: 0 });
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
+  // Update pill position when active tab changes or on window resize
   useEffect(() => {
-    const activeIndex = tabs.findIndex(tab => tab.id === activeTab);
-    const activeTabElement = tabsRef.current[activeIndex];
-    
-    if (activeTabElement) {
-      const containerLeft = activeTabElement.parentElement?.getBoundingClientRect().left || 0;
-      const tabLeft = activeTabElement.getBoundingClientRect().left;
-      const relativeLeft = tabLeft - containerLeft;
+    const updatePillPosition = () => {
+      const activeIndex = tabs.findIndex(tab => tab.id === activeTab);
+      const activeTabElement = tabsRef.current[activeIndex];
       
-      setPillStyle({
-        left: relativeLeft,
-        width: activeTabElement.offsetWidth,
-      });
-    }
+      if (activeTabElement) {
+        const containerLeft = activeTabElement.parentElement?.getBoundingClientRect().left || 0;
+        const tabLeft = activeTabElement.getBoundingClientRect().left;
+        const relativeLeft = tabLeft - containerLeft;
+        
+        setPillStyle({
+          left: relativeLeft,
+          width: activeTabElement.offsetWidth,
+        });
+      }
+    };
+    
+    updatePillPosition();
+    
+    // Add resize listener to handle responsive layout changes
+    window.addEventListener('resize', updatePillPosition);
+    return () => window.removeEventListener('resize', updatePillPosition);
   }, [activeTab, tabs]);
 
   return (
-    <div className="relative flex rounded-full bg-primary-500 p-1">
+    <div className="relative flex rounded-full bg-primary-500 p-1 max-w-full mx-auto">
       {/* Animated pill background */}
       <div
         className="absolute bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out"
@@ -52,7 +61,7 @@ export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
           ref={el => tabsRef.current[index] = el}
           onClick={() => onChange(tab.id)}
           className={cn(
-            "relative flex-1 py-1.5 text-sm transition-colors",
+            "relative flex-1 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors",
             activeTab === tab.id 
               ? "text-primary-500 font-bold" 
               : "text-white font-medium hover:text-white/90"

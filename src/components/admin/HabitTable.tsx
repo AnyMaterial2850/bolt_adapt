@@ -35,7 +35,8 @@ export function HabitTable({ habits, onEdit, onDelete, isLoading, disabled }: Ha
 
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -198,6 +199,128 @@ export function HabitTable({ habits, onEdit, onDelete, isLoading, disabled }: Ha
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card List */}
+      <div className="block md:hidden space-y-4 p-4">
+        {habits.map(habit => (
+          <div key={habit.id} className="border rounded-lg p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
+                  <HabitIcon 
+                    icon={habit.icon} 
+                    category={habit.category} 
+                    className="text-primary-500"
+                  />
+                </div>
+                <div>
+                  <div className="font-semibold">{habit.title}</div>
+                  <div className="text-xs mt-1 px-2 inline-block rounded-full bg-primary-100 text-primary-800">
+                    {habit.category.toUpperCase()}
+                  </div>
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => onEdit(habit)}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={disabled}
+                  title="Edit habit"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onDelete(habit.id)}
+                  className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                  disabled={disabled}
+                  title="Delete habit"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            {habit.description && (
+              <div className="text-sm text-gray-500">{habit.description}</div>
+            )}
+            {(habit.content_url || (habit.bottom_line_items && habit.bottom_line_items.length > 0)) && (
+              <button
+                onClick={() => setExpandedHabit(expandedHabit === habit.id ? null : habit.id)}
+                className="flex items-center text-sm text-primary-600 hover:text-primary-900 transition-colors"
+              >
+                View Content
+                <ChevronDown 
+                  className={cn(
+                    "w-4 h-4 ml-1 transition-transform duration-200",
+                    expandedHabit === habit.id && "rotate-180"
+                  )}
+                />
+              </button>
+            )}
+            {expandedHabit === habit.id && (
+              <div className="mt-3 space-y-3 border-t pt-3">
+                {habit.content_url && (
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 uppercase mb-1">
+                      Main Content
+                    </h4>
+                    <a
+                      href={habit.content_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center text-sm text-primary-600 hover:text-primary-900"
+                    >
+                      <LinkIcon className="w-4 h-4 mr-1" />
+                      {habit.content_title || 'View Content'}
+                    </a>
+                  </div>
+                )}
+                {habit.bottom_line_items?.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 uppercase mb-1">
+                      The Bottom Line
+                    </h4>
+                    <div className="space-y-2">
+                      {habit.bottom_line_items.map((item, index) => (
+                        <a
+                          key={index}
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center text-sm text-primary-600 hover:text-primary-900"
+                        >
+                          <LinkIcon className="w-4 h-4 mr-1" />
+                          {item.title}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {habit.go_deeper_titles?.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 uppercase mb-1">
+                      Go Deeper
+                    </h4>
+                    <div className="space-y-2">
+                      {habit.go_deeper_titles.map((title, index) => (
+                        <a
+                          key={index}
+                          href={habit.go_deeper_urls[index]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center text-sm text-primary-600 hover:text-primary-900"
+                        >
+                          <LinkIcon className="w-4 h-4 mr-1" />
+                          {title}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

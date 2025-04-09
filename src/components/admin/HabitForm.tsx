@@ -1,50 +1,46 @@
 import { useState } from 'react';
-import { Plus, ExternalLink, Search, Upload, X, Link as LinkIcon, FileText, Image as ImageIcon, Video } from 'lucide-react';
+import { Plus, ExternalLink, Search, Upload, X, Link as LinkIcon, FileText, Image as ImageIcon, Video, Loader2 } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { HabitIcon } from '../habits/HabitIcon';
-import type { HabitCategory, HabitContentType, BottomLineItem } from '../../types/database';
+import { Dropdown } from '../ui/Dropdown';
+import type { HabitCategory, HabitContentType, BottomLineItem, HabitFrequency } from '../../types/database';
 import { useDebugStore } from '../../stores/debugStore';
 import { cn } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
+import { habitDataProcessor } from '../../utils/habitDataProcessor';
+import type { HabitFormData } from '../../utils/types';
 
 interface HabitFormProps {
   onSubmit: (data: HabitFormData) => Promise<void>;
   onCancel: () => void;
   initialData?: HabitFormData;
   submitLabel: string;
-}
-
-export interface HabitFormData {
-  title: string;
-  description: string;
-  category: HabitCategory;
-  icon: string;
-  content_type: HabitContentType | null;
-  content_url: string;
-  content_title: string;
-  content_description: string;
-  content_thumbnail_url: string;
-  bottom_line_items: BottomLineItem[];
-  go_deeper_titles: string[];
-  go_deeper_urls: string[];
+  isSubmitting?: boolean;
 }
 
 const defaultFormState: HabitFormData = {
   title: '',
   description: '',
   category: 'move',
-  icon: '',
+  icon: null,
   content_type: null,
   content_url: '',
   content_title: '',
   content_description: '',
   content_thumbnail_url: '',
-  bottom_line_items: [],
-  go_deeper_titles: [''],
-  go_deeper_urls: [''],
+  bottom_line_items: [
+    { title: '', type: 'link', url: '', description: '' }
+  ],
+  go_deeper_titles: [],
+  go_deeper_urls: [],
+  // Add default values for missing fields
+  frequency: 'daily',
+  frequency_details: { daily: {} },
+  target: [],
+  unit: null,
 };
 
 const CATEGORIES: { value: HabitCategory; label: string }[] = [
@@ -58,11 +54,16 @@ const CONTENT_TYPES: { value: HabitContentType; label: string; icon: React.React
   { value: 'link', label: 'Link', icon: <LinkIcon className="w-4 h-4" /> },
   { value: 'video', label: 'Video', icon: <Video className="w-4 h-4" /> },
   { value: 'pdf', label: 'PDF', icon: <FileText className="w-4 h-4" /> },
-  { value: 'image', label: 'Image', icon: <ImageIcon className="w-4 h-4" /> },
-  { value: 'ppt', label: 'Presentation', icon: <FileText className="w-4 h-4" /> },
+  { value: 'image', label: 'Image', icon: <ImageIcon className="w-4 h-4" /> }
 ];
 
-export function HabitForm({ onSubmit, onCancel, initialData, submitLabel }: HabitFormProps) {
+export function HabitForm({
+  onSubmit,
+  onCancel,
+  initialData,
+  submitLabel,
+  isSubmitting = false, // Destructure isSubmitting with default
+}: HabitFormProps) {
   const { addLog } = useDebugStore();
   const [formData, setFormData] = useState<HabitFormData>(initialData || defaultFormState);
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -145,6 +146,12 @@ export function HabitForm({ onSubmit, onCancel, initialData, submitLabel }: Habi
 
     const item = formData.bottom_line_items[index];
     const fileType = item.type;
+
+    // Only proceed if it's a file type that expects an upload
+    if (fileType !== 'pdf' && fileType !== 'ppt' && fileType !== 'image') {
+        addLog(`Skipping file upload validation for type: ${fileType}`, 'info');
+        return;
+    }
 
     // Validate file type
     const validTypes = {
@@ -247,6 +254,21 @@ export function HabitForm({ onSubmit, onCancel, initialData, submitLabel }: Habi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form data before submitting
+    const validation = habitDataProcessor.validateFormData(formData);
+    if (!validation.isValid) {
+      // Show validation errors
+      const errorMessage = validation.errors.join('\n');
+      addLog(`Form validation failed: ${errorMessage}`, 'error');
+      setUploadError(errorMessage);
+      return;
+    }
+    
+    // Clear any previous errors
+    setUploadError(null);
+    
+    // Submit the form
     await onSubmit(formData);
   };
 
@@ -283,8 +305,21 @@ export function HabitForm({ onSubmit, onCancel, initialData, submitLabel }: Habi
               <img
                 src={item.url}
                 alt="Preview"
-                className="w-full h-32 object-cover rounded-lg"
+                loading="lazy"
+                className="w-full max-h-48 object-contain rounded-lg"
               />
+            ) : item.type === 'pdf' ? (
+              <embed
+                src={item.url}
+                type="application/pdf"
+                className="w-full max-h-64 rounded-lg"
+              />
+            ) : item.type === 'ppt' ? (
+              <iframe
+                src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(item.url)}`}
+                className="w-full max-h-64 rounded-lg"
+                frameBorder="0"
+              ></iframe>
             ) : (
               <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center">
                 <Icon 
@@ -341,10 +376,56 @@ export function HabitForm({ onSubmit, onCancel, initialData, submitLabel }: Habi
 
   return (
     <form onSubmit={handleSubmit} className="mb-8 bg-white p-6 rounded-xl shadow-sm space-y-6">
-      {/* Icon Selection */}
+      {/* Field order: Category, Title, Description, Icon, etc. */}
+      
+      {/* Category - Required */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Category <span className="text-red-500">*</span>
+        </label>
+        <select
+          value={formData.category}
+          onChange={e => setFormData({ ...formData, category: e.target.value as HabitCategory })}
+          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+          required
+        >
+          {CATEGORIES.map(category => (
+            <option key={category.value} value={category.value}>
+              {category.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Title - Required */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Title <span className="text-red-500">*</span>
+        </label>
+        <Input
+          value={formData.title}
+          onChange={e => setFormData({ ...formData, title: e.target.value })}
+          required
+          placeholder="Enter habit title"
+        />
+      </div>
+
+      {/* Description - Optional */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Description <span className="text-gray-400 text-xs">(optional)</span>
+        </label>
+        <Input
+          value={formData.description}
+          onChange={e => setFormData({ ...formData, description: e.target.value })}
+          placeholder="Enter habit description"
+        />
+      </div>
+
+      {/* Icon Selection - Optional */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Icon
+          Icon <span className="text-gray-400 text-xs">(optional)</span>
         </label>
         <div className="flex items-center space-x-3">
           <div className="w-12 h-12 rounded-lg bg-primary-100 flex items-center justify-center">
@@ -368,43 +449,83 @@ export function HabitForm({ onSubmit, onCancel, initialData, submitLabel }: Habi
         </div>
       </div>
 
-      {/* Basic Information */}
+      {/* Frequency - Required */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Title
-        </label>
-        <Input
-          value={formData.title}
-          onChange={e => setFormData({ ...formData, title: e.target.value })}
+        <Dropdown
+          label="Frequency"
           required
+          options={[
+            { value: 'daily', label: 'Daily' },
+            { value: 'days_per_week', label: 'Days per week' },
+            { value: 'times_per_week', label: 'Times per week' },
+            { value: 'after_meals', label: 'After meals' },
+            { value: 'times_per_day', label: 'Times per day' },
+            { value: 'specific_times', label: 'Specific times' }
+          ]}
+          value={formData.frequency}
+          onChange={(value) => setFormData({ ...formData, frequency: value as HabitFrequency })}
         />
       </div>
 
-      <div>
+      {/* Target and Unit - Optional */}
+      <div className="space-y-4 border-t pt-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description
+          Target Values <span className="text-gray-400 text-xs">(optional)</span>
         </label>
-        <Input
-          value={formData.description}
-          onChange={e => setFormData({ ...formData, description: e.target.value })}
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Category
-        </label>
-        <select
-          value={formData.category}
-          onChange={e => setFormData({ ...formData, category: e.target.value as HabitCategory })}
-          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+        {formData.target?.map((val, idx) => (
+          <div key={idx} className="flex gap-2 mb-2">
+            <input
+              type="number"
+              value={val === null || val === undefined || isNaN(val as number) ? '' : val}
+              onChange={e => {
+                const newTargets = [...(formData.target || [])];
+                const inputValue = e.target.value;
+                newTargets[idx] = inputValue === '' ? '' : parseFloat(inputValue);
+                setFormData({ ...formData, target: newTargets });
+              }}
+              placeholder="e.g., 20, 50, 100"
+              className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                const newTargets = [...(formData.target || [])];
+                newTargets.splice(idx, 1);
+                setFormData({ ...formData, target: newTargets });
+              }}
+            >
+              Remove
+            </Button>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            // Initialize with empty string to allow user input, will be validated before submission
+            const newTargets = [...(formData.target || [])];
+            newTargets.push('');
+            setFormData({ ...formData, target: newTargets });
+          }}
         >
-          {CATEGORIES.map(category => (
-            <option key={category.value} value={category.value}>
-              {category.label}
-            </option>
-          ))}
-        </select>
+          Add Target
+        </Button>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Unit <span className="text-gray-400 text-xs">(optional - grams, minutes, hours, etc.)</span>
+          </label>
+          <input
+            type="text"
+            value={formData.unit ?? ''}
+            onChange={e => setFormData({ ...formData, unit: e.target.value })}
+            placeholder="grams, minutes, hours"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+          />
+        </div>
       </div>
 
       {/* The Bottom Line Section */}
@@ -418,7 +539,7 @@ export function HabitForm({ onSubmit, onCancel, initialData, submitLabel }: Habi
             size="sm"
           >
             <Plus className="w-4 h-4 mr-1" />
-            Add Item
+            Add Another
           </Button>
         </div>
 
@@ -507,7 +628,7 @@ export function HabitForm({ onSubmit, onCancel, initialData, submitLabel }: Habi
             size="sm"
           >
             <Plus className="w-4 h-4 mr-1" />
-            Add Link
+            Add Content
           </Button>
         </div>
 
@@ -572,8 +693,11 @@ export function HabitForm({ onSubmit, onCancel, initialData, submitLabel }: Habi
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={isUploading}>
-          {submitLabel}
+        <Button type="submit" disabled={isUploading || isSubmitting}>
+          {isSubmitting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : null}
+          {isSubmitting ? 'Saving...' : submitLabel}
         </Button>
       </div>
 

@@ -28,7 +28,7 @@ interface DebugState {
 
 export const useDebugStore = create<DebugState>((set) => ({
   logs: [],
-  isVisible: true, // Always visible in development
+  isVisible: false, // Hidden by default
   addLog: (message, type = 'info', details = {}) => {
     const log: DebugLog = {
       message,

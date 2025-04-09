@@ -72,20 +72,20 @@ export function Layout() {
     { id: 'habits', label: 'Habits' },
   ];
 
-  // Calculate header height based on active tab
+  // Calculate header height based on active tab and screen size
   const getHeaderHeight = () => {
-    // Base height for top bar and tabs
-    let height = 72 + 56; // 72px for top bar, 56px for tabs padding and content
+    // Base height for top bar and tabs - responsive
+    let height = window.innerWidth < 640 ? 60 + 48 : 72 + 56; // Smaller on mobile
 
     // Add height for additional navigation elements
     if (activeTab === 'habits') {
-      height += 48; // Height for habit categories
+      height += window.innerWidth < 640 ? 40 : 48; // Height for habit categories
     } else if (activeTab === 'plan') {
-      height += 48; // Height for date navigation
+      height += window.innerWidth < 640 ? 40 : 48; // Height for date navigation
     }
 
     // Add extra padding
-    height += 16; // 16px extra padding at bottom
+    height += window.innerWidth < 640 ? 12 : 16; // Less padding on mobile
 
     return height;
   };
@@ -93,24 +93,25 @@ export function Layout() {
   return (
     <div className="min-h-screen bg-[#F6F9FF]">
       {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 z-20 bg-white border-b">
-        <div className="max-w-lg mx-auto px-4">
+      <header className="fixed top-0 left-0 right-0 z-20 bg-white border-b shadow-sm">
+        {/* Adjusted container width to better utilize space on larger phones */}
+        <div className="w-full max-w-full sm:max-w-full md:max-w-3xl lg:max-w-4xl xl:max-w-5xl mx-auto px-4 sm:px-6">
           {/* Top Bar */}
-          <div className="h-[72px] flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <h1 className="text-2xl font-bold">ADAPT</h1>
+          <div className="h-[60px] sm:h-[72px] flex items-center justify-between">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <h1 className="text-xl sm:text-2xl font-bold text-fluid-xl sm:text-fluid-2xl">ADAPT</h1>
               {user?.is_admin && (
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2 sm:space-x-3">
                   <a
                     href="/admin/habits"
-                    className="text-sm font-medium text-primary-600 hover:text-primary-700"
+                    className="text-xs sm:text-sm font-medium text-primary-600 hover:text-primary-700"
                   >
                     Admin
                   </a>
                   {process.env.NODE_ENV === 'development' && (
                     <button
                       onClick={() => setShowDebug(!showDebug)}
-                      className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                      className="text-xs sm:text-sm font-medium text-gray-500 hover:text-gray-700"
                     >
                       Debug
                     </button>
@@ -132,7 +133,7 @@ export function Layout() {
           </div>
 
           {/* Navigation */}
-          <div className="py-4 space-y-3">
+          <div className="py-3 sm:py-4 space-y-2 sm:space-y-3">
             <Tabs
               tabs={tabs}
               activeTab={activeTab}
@@ -142,7 +143,10 @@ export function Layout() {
             {activeTab === 'habits' && (
               <HabitCategories
                 activeCategory={activeCategory}
-                onCategoryChange={setActiveCategory}
+                onCategoryChange={(newCategory) => {
+                  console.log('[Layout] Setting activeCategory:', newCategory);
+                  setActiveCategory(newCategory);
+                }}
               />
             )}
 
@@ -156,9 +160,9 @@ export function Layout() {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content - Adjusted to better utilize space on larger phones */}
       <main
-        className="mx-auto max-w-lg px-4 pb-24"
+        className="w-full max-w-full sm:max-w-full md:max-w-3xl lg:max-w-4xl xl:max-w-5xl mx-auto px-4 sm:px-6 pb-24"
         style={{ paddingTop: `${getHeaderHeight()}px` }}
       >
         <Outlet context={{ activeTab, activeCategory, selectedDate }} />

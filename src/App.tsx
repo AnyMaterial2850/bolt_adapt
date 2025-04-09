@@ -14,11 +14,14 @@ import { Layout } from './components/Layout';
 import { HealthCheck } from './components/shared/HealthCheck';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import Profile from './pages/Profile/Profile';
+import { useReminderNotifications } from './hooks/useReminderNotifications';
 
 function App() {
   const { loadUser, loading, user } = useAuthStore();
   const { addLog } = useDebugStore();
   const [connectionError, setConnectionError] = useState<string | null>(null);
+
+  useReminderNotifications();
 
   useEffect(() => {
     const init = async () => {

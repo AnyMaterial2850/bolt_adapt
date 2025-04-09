@@ -132,6 +132,8 @@ export interface Habit {
   images?: HabitImage[];
   frequency: HabitFrequency;
   frequency_details: HabitFrequencyDetails;
+  target?: number[];
+  unit?: string | null;
 }
 
 export interface DaySchedule {
