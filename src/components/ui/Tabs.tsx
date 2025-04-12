@@ -13,11 +13,15 @@ interface TabsProps {
 }
 
 export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
+  console.log('[Tabs] Rendered with activeTab:', activeTab);
+
   const [pillStyle, setPillStyle] = useState({ left: 0, width: 0 });
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Update pill position when active tab changes or on window resize
   useEffect(() => {
+    console.log('[Tabs] useEffect triggered with activeTab:', activeTab);
+
     const updatePillPosition = () => {
       const activeIndex = tabs.findIndex(tab => tab.id === activeTab);
       const activeTabElement = tabsRef.current[activeIndex];
@@ -26,10 +30,15 @@ export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
         const containerLeft = activeTabElement.parentElement?.getBoundingClientRect().left || 0;
         const tabLeft = activeTabElement.getBoundingClientRect().left;
         const relativeLeft = tabLeft - containerLeft;
-        
-        setPillStyle({
+        const newStyle = {
           left: relativeLeft,
           width: activeTabElement.offsetWidth,
+        };
+        setPillStyle(prev => {
+          if (prev.left !== newStyle.left || prev.width !== newStyle.width) {
+            return newStyle;
+          }
+          return prev;
         });
       }
     };
@@ -59,7 +68,10 @@ export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
         <button
           key={tab.id}
           ref={el => tabsRef.current[index] = el}
-          onClick={() => onChange(tab.id)}
+          onClick={() => {
+            console.log('[Tabs] onClick tab.id:', tab.id, 'current activeTab:', activeTab);
+            onChange(tab.id);
+          }}
           className={cn(
             "relative flex-1 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors",
             activeTab === tab.id 

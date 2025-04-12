@@ -9,9 +9,10 @@ interface HabitContentProps {
   habit: Habit;
   onSelectTarget?: (target: number) => void;
   selectedTarget?: number;
+  selectedTargets: Record<string, number>;
 }
 
-export function HabitContent({ habit, onSelectTarget, selectedTarget }: HabitContentProps) {
+export function HabitContent({ habit, onSelectTarget, selectedTarget, selectedTargets }: HabitContentProps) {
   const [localSelectedTarget, setLocalSelectedTarget] = useState<number | undefined>(selectedTarget);
 
   const handleSelectTarget = (target: number) => {
@@ -106,6 +107,7 @@ export function HabitContent({ habit, onSelectTarget, selectedTarget }: HabitCon
           habit={habit} 
           selectedTarget={localSelectedTarget} 
           onSelectTarget={handleSelectTarget} 
+          selectedTargets={selectedTargets}
         />
       )}
 

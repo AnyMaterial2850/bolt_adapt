@@ -5,25 +5,30 @@ interface HabitTargetSelectorProps {
   habit: Habit;
   selectedTarget?: number;
   onSelectTarget: (target: number) => void;
+  selectedTargets: Record<string, number>;
 }
 
 export function HabitTargetSelector({ 
   habit, 
   selectedTarget, 
-  onSelectTarget 
+  onSelectTarget,
+  selectedTargets
 }: HabitTargetSelectorProps) {
   const [selected, setSelected] = useState<number | undefined>(selectedTarget);
 
   useEffect(() => {
-    // If a target is selected externally, update the local state
     if (selectedTarget !== undefined) {
-      setSelected(selectedTarget);
+      if (selected !== selectedTarget) {
+        setSelected(selectedTarget);
+      }
     } else if (habit.target && habit.target.length > 0) {
-      // Auto-select the first target if none is selected
-      setSelected(habit.target[0]);
-      onSelectTarget(habit.target[0]);
+      const currentStoreValue = selectedTargets[habit.id];
+      if (currentStoreValue === undefined && selected === undefined) {
+        setSelected(habit.target[0]);
+        onSelectTarget(habit.target[0]);
+      }
     }
-  }, [selectedTarget, habit.target, onSelectTarget]);
+  }, [selectedTarget, habit.target, onSelectTarget, habit.id, selectedTargets, selected]);
 
   // If there are no targets, don't render anything
   if (!habit.target || habit.target.length === 0) {

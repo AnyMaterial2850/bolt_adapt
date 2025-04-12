@@ -4,7 +4,7 @@ import { Tabs } from './ui/Tabs';
 import { HabitCategories } from './habits/HabitCategories';
 import { BottomNav } from './ui/BottomNav';
 import { DateNavigation } from './plan/DateNavigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { HabitCategory } from '../types/database';
 import { useDebugStore } from '../stores/debugStore';
 import { Avatar } from './ui/Avatar';
@@ -43,7 +43,8 @@ export function Layout() {
   }, [activeTab, setShowConfirmDialog, setNextNavigationPage, setHasUnsavedChanges, setPendingNavigation]);
 
   const handleTabChange = (tab: string) => {
-    
+    if (tab === activeTab) return; // Prevent infinite loop
+
     if(hasUnsavedChanges) {
         setShowConfirmDialog(true);
         setPendingNavigation(true);
@@ -51,26 +52,20 @@ export function Layout() {
         return
     }
 
-
-    // First update the active tab
     setActiveTab(tab);
     
-    // Then navigate if needed
     if (location.pathname.startsWith('/habits/')) {
-      // Use a small timeout to ensure the tab updates before navigation
       setTimeout(() => {
         navigate('/');
       }, 0);
     }
-
-
   };
 
-  const tabs = [
+  const tabs = useMemo(() => [
     { id: 'goal', label: 'Goal' },
     { id: 'plan', label: 'Plan' },
     { id: 'habits', label: 'Habits' },
-  ];
+  ], []);
 
   // Calculate header height based on active tab and screen size
   const getHeaderHeight = () => {

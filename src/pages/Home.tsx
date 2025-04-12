@@ -265,6 +265,7 @@ export function Home() {
               onAddOrRemoveHabit={handleAddOrRemoveUserHabit}
               onAddHabit={handleAddHabit}
               onSelectTarget={handleSelectTarget}
+              selectedTargets={selectedTargets}
             />
           </>
         )

@@ -13,6 +13,7 @@ interface HabitItemProps {
   userHabits: UserHabit[];
   onSelectTarget?: (habitId: string, target: number) => void;
   selectedTarget?: number;
+  selectedTargets: Record<string, number>;
 }
 
 export function HabitItem({ 
@@ -21,7 +22,8 @@ export function HabitItem({
   onSelect, 
   userHabits, 
   onSelectTarget,
-  selectedTarget 
+  selectedTarget,
+  selectedTargets
 }: HabitItemProps) {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -100,54 +102,42 @@ export function HabitItem({
         </div>
       </div>
 
-      {/* Show target selector directly if habit has targets */}
-      {isSelected && habit.target && habit.target.length > 0 && !isExpanded && (
-        <div className="pt-3 sm:pt-4 border-t">
-          <HabitContent 
-            habit={habit} 
-            onSelectTarget={handleTargetSelect}
-            selectedTarget={selectedTarget}
-          />
-        </div>
-      )}
-
       {hasContent && (
-        <div className={cn(
-          "border-t pt-3 sm:pt-4",
-          isSelected && habit.target && habit.target.length > 0 ? "hidden" : ""
-        )}>
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center justify-between text-sm sm:text-base text-gray-600 hover:text-gray-900 py-1 sm:py-2"
-          >
-            <span className="font-medium">Learn More</span>
-            <ChevronDown 
-              className={cn(
-                "w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ease-in-out",
-                isExpanded ? "rotate-180" : ""
-              )}
+        <div className="border-t pt-3 sm:pt-4">
+          {isSelected && habit.target && habit.target.length > 0 ? (
+            <HabitContent 
+              habit={habit} 
+              onSelectTarget={handleTargetSelect}
+              selectedTarget={selectedTarget}
+              selectedTargets={selectedTargets}
             />
-          </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="w-full flex items-center justify-between text-sm sm:text-base text-gray-600 hover:text-gray-900 py-1 sm:py-2"
+              >
+                <span className="font-medium">Learn More</span>
+                <ChevronDown 
+                  className={cn(
+                    "w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ease-in-out",
+                    isExpanded ? "rotate-180" : ""
+                  )}
+                />
+              </button>
 
-          <div className={cn(
-            "grid transition-all duration-300 ease-in-out",
-            isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-          )}>
-            <div className="overflow-hidden">
-              <div className={cn(
-                "mt-3 sm:mt-4 transition-all duration-300 ease-in-out",
-                isExpanded ? "translate-y-0" : "-translate-y-2"
-              )}>
-                {habit && (
+              {isExpanded && (
+                <div className="mt-3 sm:mt-4">
                   <HabitContent 
                     habit={habit} 
                     onSelectTarget={handleTargetSelect}
                     selectedTarget={selectedTarget}
+                    selectedTargets={selectedTargets}
                   />
-                )}
-              </div>
-            </div>
-          </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

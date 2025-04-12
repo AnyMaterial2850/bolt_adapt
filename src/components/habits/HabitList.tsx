@@ -11,6 +11,7 @@ interface HabitListProps {
   onAddOrRemoveHabit: (habit: Habit, isSelected: boolean) => void;
   onAddHabit: () => void;
   onSelectTarget?: (habitId: string, target: number) => void;
+  selectedTargets: Record<string, number>;
 }
 
 export function HabitList({
@@ -19,11 +20,11 @@ export function HabitList({
   category,
   onAddOrRemoveHabit,
   onAddHabit,
-  onSelectTarget
+  onSelectTarget,
+  selectedTargets
 }: HabitListProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedTargets, setSelectedTargets] = useState<Record<string, number>>({});
-  
+
   console.log(`[HabitList] Received category prop: ${category}`);
   console.log(`[HabitList] Received ${habits.length} total habits`);
 
@@ -39,11 +40,6 @@ export function HabitList({
   console.log(`[HabitList] Filtered down to ${filteredHabits.length} habits for category: ${category}`);
 
   const handleTargetSelect = (habitId: string, target: number) => {
-    setSelectedTargets(prev => ({
-      ...prev,
-      [habitId]: target
-    }));
-    
     if (onSelectTarget) {
       onSelectTarget(habitId, target);
     }
@@ -88,6 +84,7 @@ export function HabitList({
                 userHabits={userHabits}
                 onSelectTarget={handleTargetSelect}
                 selectedTarget={selectedTargets[habit.id]}
+                selectedTargets={selectedTargets}
               />
             );
           })

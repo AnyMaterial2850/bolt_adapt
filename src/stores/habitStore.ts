@@ -277,8 +277,17 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   
   setSelectedTarget: (habitId: string, target: number) => {
     const { addLog } = useDebugStore.getState();
+    const currentState = get();
+    const current = currentState.selectedTargets[habitId];
+
+    if (current === target) {
+      addLog(`Skipping update: target for habit ${habitId} already ${target}`, 'debug', { component: 'habitStore.setSelectedTarget' });
+      return;
+    }
+
     addLog(`Setting selected target for habit ${habitId} to ${target}`, 'info', { component: 'habitStore.setSelectedTarget' });
-    
+    addLog(`Updating target for habit ${habitId} from ${current} to ${target}`, 'debug', { component: 'habitStore.setSelectedTarget' });
+
     set(state => ({
       selectedTargets: {
         ...state.selectedTargets,
