@@ -2,38 +2,57 @@
 
 ## Current Focus
 
-- **Task:** Improve PWA offline capabilities.
-- **Goal:** Implement runtime caching in the service worker (`public/service-worker.js`) using Workbox strategies to cache API calls (Supabase data) and improve SW lifecycle management, enabling better offline usability as requested by the user.
+- **Task:** Application Architecture Refactoring
+- **Goal:** Implement a holistic architectural transformation to improve maintainability, performance, and reliability of the entire application based on principles derived from fixing the completion store.
 
 ## Recent Changes
 
-- Created all core Memory Bank files (`projectbrief.md`, `productContext.md`, `systemPatterns.md`, `techContext.md`, `activeContext.md`, `progress.md`).
-- Reviewed core setup files (`package.json`, `vite.config.ts`, `src/main.tsx`, `src/App.tsx`).
-- Reviewed core modules (`src/lib/supabase.ts`, `src/stores/authStore.ts`, `src/lib/sw-reg.ts`, `public/service-worker.js`, `src/components/Layout.tsx`, `src/stores/appStore.ts`).
-- Updated Memory Bank files with initial findings.
+- Fixed completionStore.ts infinite reload issue by implementing proper caching, dependency management, and separation of concerns
+- Refactored PlanTab.tsx to be a pure presentation component, removing all data loading logic
+- Updated Home.tsx to be the single source of truth for completion data loading
+- Established core architectural principles for the entire application:
+  1. Separation of Concerns (Container/Presentation pattern)
+  2. Smart Caching Strategy with timestamps and tracking of loaded data
+  3. Single Source of Truth for data loading
+  4. Proper React Hook Management
+  5. Error Recovery and Resilience
+- Updated Memory Bank files to reflect new architectural principles
 
-## Next Steps (Assessment Plan)
+## Next Steps (Architectural Refactoring Plan)
 
-1.  **Review Error Handling & Debugging:**
-    *   `src/lib/error-handling.ts`
-    *   `src/stores/debugStore.ts`
-    *   `src/components/ErrorBoundary.tsx`
-    *   `src/components/DebugPanel.tsx`
-2.  **Analyze Feature Areas (High-Level):**
-    *   Habit management (`src/pages/habits/`, `src/components/habits/`) - Key components? Data fetching? State?
-    *   Profile management (`src/pages/Profile/`, `src/components/profile/`) - Key components? Data fetching? State?
-    *   Admin section (`src/pages/admin/`, `src/components/admin/`) - Key components? Functionality?
-3.  **Examine Supabase Structure:**
-    *   Review migrations (`supabase/migrations/`) - Identify key tables and relationships.
-    *   Review function code (`supabase/functions/createNotification/index.ts`).
-    *   Check for RLS policies (requires Supabase access or schema dump).
-4.  **Identify Potential Issues:** Continue looking for code smells, complexity, lack of tests, performance bottlenecks, PWA best practice adherence (especially runtime caching).
-5.  **Refine Memory Bank:** Updated all core files based on initial assessment and user feedback.
-6.  **Formulate Recommendations & Questions:** Presented findings and questions to the user. Received clarifications on priorities (Offline > Payments), coaching notes (manual admin entry), and chat (external platform).
+1. **Global State Management Restructuring:**
+   * Review and refactor all Zustand stores to follow established patterns
+   * Implement consistent caching patterns across all stores
+   * Add timestamp tracking and "dirty checking" to all data fetching
+   * Create clear hierarchy of stores with well-defined dependencies
+
+2. **Component Architecture Overhaul:**
+   * Apply Container/Presentation pattern across all major features
+   * Standardize component interfaces with TypeScript
+   * Create shared component documentation
+
+3. **Unified Data Fetching Strategy:**
+   * Create centralized data fetching patterns
+   * Implement request deduplication and caching
+   * Standardize API response handling and error recovery
+   * Add global loading indicators for all async operations
+
+4. **Comprehensive Error Handling:**
+   * Implement app-wide error boundaries
+   * Create standardized error components with retry capabilities
+   * Add centralized error logging and reporting
+   * Design graceful degradation paths for all features
+
+5. **Performance Optimization Framework:**
+   * Audit and optimize all React hooks
+   * Implement consistent memoization patterns
+   * Add performance monitoring
+   * Create guidelines for when to use React.memo, useMemo, and useCallback
 
 ## Active Decisions & Considerations
 
-- Prioritizing PWA offline improvements based on user feedback.
-- Deferring work on Payments/Subscription integration.
-- Noting requirements for future tasks: Admin UI for coaching notes, integration with external chat platform.
-- Acknowledging existing technical debt/areas for improvement (coupling, state complexity, layout calculation, etc.) to potentially address later.
+- Prioritizing architectural improvements to enhance maintainability and performance
+- Implementing changes gradually to maintain functionality throughout the refactoring process
+- Starting with completion and habits functionality as the template for the architecture
+- Considering future scalability in all architectural decisions
+- Planning to refactor one domain at a time to minimize disruption

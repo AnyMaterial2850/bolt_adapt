@@ -26,7 +26,8 @@ export function IconPicker({ isOpen, onClose, onSelect }: IconPickerProps) {
     setLoadingIcons(true);
     try {
       addLog('Searching icons...', 'info');
-      const response = await fetch(`https://api.iconify.design/search?query=${encodeURIComponent(query)}&limit=30`);
+      // Restrict search to only Material Design Icons (MDI) set for consistency
+      const response = await fetch(`https://api.iconify.design/search?query=${encodeURIComponent(query)}&prefix=mdi&limit=30`);
       if (!response.ok) throw new Error('Failed to fetch icons');
       
       const data = await response.json();

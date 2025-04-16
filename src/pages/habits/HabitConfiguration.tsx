@@ -11,8 +11,10 @@ import { Modal } from '../../components/ui/Modal';
 import type { UserHabit, HabitCategory } from '../../types/database';
 import { useDebugStore } from '../../stores/debugStore';
 import { HabitIcon } from '../../components/habits/HabitIcon';
+import { HabitTargetSelector } from '../../components/habits/HabitTargetSelector';
 import { parse } from 'date-fns';
 import useAppStore from '../../stores/appStore';
+import { useHabitStore } from '../../stores/habitStore';
 
 const DAYS_OF_WEEK = [
   { id: 'Mon', label: 'M', full: 'Monday' },
@@ -37,6 +39,7 @@ interface DaySchedule {
   schedules: {
     event_time: string;
     reminder_time: string | null;
+    label: string | null;
   }[];
 }
 
@@ -61,6 +64,8 @@ export function HabitConfiguration() {
     useAppStore();
 
   const [animatingDays, setAnimatingDays] = useState<string[]>([]);
+  const { selectedTargets, setSelectedTarget } = useHabitStore();
+  const [selectedHabitTarget, setSelectedHabitTarget] = useState<number | undefined>(undefined);
 
   // Custom habit editing state
   const [habitTitle, setHabitTitle] = useState('');
@@ -76,8 +81,45 @@ export function HabitConfiguration() {
   const loadHabit = useCallback(async () => {
     try {
       setLoading(true);
-      addLog('Loading habit configuration...', 'info');
+      addLog(`Loading habit configuration for ID: ${habitId}...`, 'info');
 
+      // Validate habitId
+      if (!habitId) {
+        addLog('No habit ID provided', 'error');
+        setToast({
+          message: 'Invalid habit ID. Please try again.',
+          type: 'error'
+        });
+        setLoading(false);
+        return;
+      }
+
+      // First, check if the habit exists in user_habits
+      const { data: userHabitData, error: userHabitError } = await supabase
+        .from('user_habits')
+        .select('id')
+        .eq('id', habitId)
+        .single();
+
+      if (userHabitError) {
+        addLog(`User habit query error: ${userHabitError.message}`, 'error');
+        setToast({
+          message: 'Could not verify habit details.',
+          type: 'error'
+        });
+        return;
+      }
+
+      if (!userHabitData) {
+        addLog(`No user habit found with ID: ${habitId}`, 'warn');
+        setToast({
+          message: 'Habit not found. It may have been deleted.',
+          type: 'error'
+        });
+        return;
+      }
+
+      // Now fetch full habit details
       const { data, error } = await supabase
         .from('user_habits')
         .select(`
@@ -88,46 +130,70 @@ export function HabitConfiguration() {
         .single();
 
       if (error) {
-        addLog(`Error loading habit: ${error.message}`, 'error');
-        throw error;
-      }
-      if (!data) {
-        addLog('Habit not found', 'error');
-        throw new Error('Habit not found');
+        addLog(`Error loading habit details: ${error.message}`, 'error');
+        setToast({
+          message: error.message || 'Could not load habit details.',
+          type: 'error'
+        });
+        return;
       }
 
-      addLog(`Loaded habit: ${data.habit?.title}`, 'success');
+      if (!data) {
+        addLog('No habit details found after verification', 'warn');
+        setToast({
+          message: 'Could not retrieve habit details.',
+          type: 'error'
+        });
+        return;
+      }
+
+      addLog(`Loaded habit: ${data.habit?.title || 'Untitled'}`, 'success');
+      
+      // Safely set states with fallback values
       setHabit(data);
-      setIsActive(data.active);
+      setIsActive(data.active ?? false);
       setHabitTitle(data.habit?.title || '');
       setHabitDescription(data.habit?.description || '');
       setHabitCategory(data.habit?.category || 'move');
       setHabitIcon(data.habit?.icon || null);
       
-      if (!data.daily_schedules || !data.daily_schedules.length) {
+      // Set selected target if available
+      if (data.habit?.id && selectedTargets[data.habit.id] !== undefined) {
+        setSelectedHabitTarget(selectedTargets[data.habit.id]);
+      } else if (data.habit?.target && data.habit.target.length > 0) {
+        setSelectedHabitTarget(data.habit.target[0]);
+      }
+      
+      // Handle daily schedules
+      const schedules = data.daily_schedules || [];
+      if (schedules.length === 0) {
         const defaultSchedules = DAYS_OF_WEEK.map(day => ({
           day: day.id,
           active: true,
           schedules: [{
             event_time: '09:00',
-            reminder_time: null
+            reminder_time: null,
+            label: null
           }]
         }));
         setDailySchedules(defaultSchedules);
         addLog('Initialized default schedules', 'info');
       } else {
-        setDailySchedules(data.daily_schedules);
+        setDailySchedules(schedules);
         addLog('Loaded existing schedules', 'info');
       }
 
     } catch (err) {
-      console.error('Error loading habit:', err);
-      addLog(`Failed to load habit: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
-      navigate(-1);
+      console.error('Unexpected error in loadHabit:', err);
+      addLog(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      setToast({
+        message: 'An unexpected error occurred. Please try again.',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
-  }, [habitId, navigate, addLog, setHabit, setIsActive, setHabitTitle, setHabitDescription, setHabitCategory, setHabitIcon, setDailySchedules, setLoading]);
+  }, [habitId, addLog, selectedTargets, setHabit, setIsActive, setHabitTitle, setHabitDescription, setHabitCategory, setHabitIcon, setDailySchedules]);
   useEffect(() => {
     if (!user || !habitId) {
       addLog('No user or habit ID found, redirecting...', 'error');
@@ -168,37 +234,80 @@ export function HabitConfiguration() {
   const handleToggleActive = async (newActiveState: boolean) => {
     if (!habit || isSaving) return;
 
-    try {
-      setIsSaving(true);
-      addLog(`${newActiveState ? 'Activating' : 'Deactivating'} habit...`, 'info');
-      
-      setIsActive(newActiveState);
+    // Optimistically update UI
+    const previousActiveState = isActive;
+    setIsActive(newActiveState);
+    setIsSaving(true);
 
+    try {
+      addLog(`${newActiveState ? 'Activating' : 'Deactivating'} habit...`, 'info');
+
+      // Comprehensive deduplication and verification
+      const { data: duplicateEntries, error: duplicateError } = await supabase
+        .from('user_habits')
+        .select('id, user_id, habit_id', { count: 'exact' })
+        .eq('user_id', user?.id)
+        .eq('habit_id', habit.habit?.id);
+
+      if (duplicateError) {
+        addLog(`Duplicate check error: ${duplicateError.message}`, 'error');
+        throw new Error('Failed to verify habit entries');
+      }
+
+      // Remove duplicate entries, keeping only the first one
+      if (duplicateEntries && duplicateEntries.length > 1) {
+        const primaryEntry = duplicateEntries[0];
+        const duplicateIds = duplicateEntries
+          .slice(1)
+          .map(entry => entry.id);
+
+        addLog(`Removing ${duplicateIds.length} duplicate habit entries`, 'warn');
+
+        const { error: cleanupError } = await supabase
+          .from('user_habits')
+          .delete()
+          .in('id', duplicateIds);
+
+        if (cleanupError) {
+          addLog(`Failed to remove duplicate entries: ${cleanupError.message}`, 'error');
+        }
+
+        // Use the primary entry for update
+        habit.id = primaryEntry.id;
+      }
+
+      // Proceed with update
       const { error } = await supabase
         .from('user_habits')
         .update({
           active: newActiveState,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', habit.id);
+        .eq('id', habit.id)
+        .eq('user_id', user?.id)
+        .eq('habit_id', habit.habit?.id)
+        .single(); // Ensure single row update
 
       if (error) {
-        setIsActive(!newActiveState);
+        // Revert UI state if update fails
         addLog(`Failed to update habit status: ${error.message}`, 'error');
-        throw error;
+        setIsActive(previousActiveState);
+        setToast({
+          message: 'Failed to update habit status. Please try again.',
+          type: 'error'
+        });
+        return;
       }
 
+      // Update habit state
       setHabit(prev => prev ? { ...prev, active: newActiveState } : null);
       
       addLog(`Habit ${newActiveState ? 'activated' : 'deactivated'} successfully`, 'success');
-      setToast({
-        message: `Habit ${newActiveState ? 'activated' : 'deactivated'} successfully`,
-        type: 'success'
-      });
     } catch (err) {
-      console.error('Error toggling habit:', err);
+      console.error('Unexpected error toggling habit:', err);
+      setIsActive(previousActiveState);
       setToast({
-        message: 'Failed to update habit status. Please try again.',
+        message: err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.',
         type: 'error'
       });
     } finally {
@@ -278,10 +387,6 @@ export function HabitConfiguration() {
       }
 
       addLog('Changes saved successfully', 'success');
-      setToast({
-        message: 'Changes saved successfully',
-        type: 'success'
-      });
 
       // Update local state
       setHabit(prev => prev ? 
@@ -331,7 +436,8 @@ export function HabitConfiguration() {
     setLoadingIcons(true);
     try {
       addLog('Searching icons...', 'info');
-      const response = await fetch(`https://api.iconify.design/search?query=${encodeURIComponent(query)}&limit=30`);
+      // Restrict search to only Material Design Icons (MDI) set for consistency
+      const response = await fetch(`https://api.iconify.design/search?query=${encodeURIComponent(query)}&prefix=mdi&limit=30`);
       if (!response.ok) throw new Error('Failed to fetch icons');
       
       const data = await response.json();
@@ -379,7 +485,7 @@ export function HabitConfiguration() {
               ...schedule,
               schedules: [
                 ...schedule.schedules,
-                { event_time: '09:00', reminder_time: null }
+                { event_time: '09:00', reminder_time: null, label: null }
               ]
             }
           : schedule
@@ -494,10 +600,7 @@ export function HabitConfiguration() {
       }))
     );
 
-    setToast({
-      message: `Copied ${selectedDayName}'s schedule to all days`,
-      type: 'success'
-    });
+    // Success message removed
 
     setTimeout(() => {
       setAnimatingDays([]);
@@ -600,6 +703,45 @@ export function HabitConfiguration() {
             ))}
           </select>
         </div>
+        
+        {/* Frequency */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Frequency
+          </label>
+          <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-700">
+                {habit?.habit?.frequency === 'daily' ? 'Daily' : 
+                 habit?.habit?.frequency === 'days_per_week' ? 'Days per week' : 
+                 habit?.habit?.frequency === 'times_per_week' ? 'Times per week' : 
+                 habit?.habit?.frequency === 'after_meals' ? 'After meals' : 
+                 habit?.habit?.frequency === 'times_per_day' ? 'Times per day' : 
+                 habit?.habit?.frequency === 'specific_times' ? 'Specific times' : 
+                 'Daily'}
+              </span>
+              <span className="text-xs text-gray-500">Read only</span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Frequency cannot be changed after creation</p>
+        </div>
+        
+        {/* Target */}
+        {habit?.habit?.target && habit.habit.target.length > 0 && habit.habit && (
+          <div>
+            <HabitTargetSelector
+              habit={habit.habit}
+              selectedTarget={selectedHabitTarget}
+              onSelectTarget={(target) => {
+                setSelectedHabitTarget(target);
+                if (habit.habit?.id) {
+                  setSelectedTarget(habit.habit.id, target);
+                }
+              }}
+              selectedTargets={selectedTargets}
+            />
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl p-6">
@@ -683,32 +825,42 @@ export function HabitConfiguration() {
               {selectedSchedule.active && (
                 <div className="space-y-4">
                   {selectedSchedule.schedules.map((schedule, index) => (
-                    <div key={index} className="space-y-3 p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-gray-700">
-                          Time {index + 1}
-                        </h4>
-                        {selectedSchedule.schedules.length > 1 && (
-                          <button
-                            onClick={() => removeSchedule(selectedDay, index)}
-                            className="p-2 text-red-500 hover:text-red-700 rounded-full hover:bg-red-50"
-                            title="Remove time"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-3">
+                    <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                      <div className="grid grid-cols-1 gap-3">
+                        {/* Label */}
+                        <div className="relative">
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Label
+                            </label>
+                            {selectedSchedule.schedules.length > 1 && (
+                              <button
+                                onClick={() => removeSchedule(selectedDay, index)}
+                                className="p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-50"
+                                title="Remove time"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                          <Input
+                            value={schedule.label || ''}
+                            onChange={e => updateSchedule(selectedDay, index, 'label', e.target.value || null)}
+                            placeholder={`Time ${index + 1}`}
+                            className="mb-2"
+                          />
+                        </div>
+                        
+                        {/* Event Time */}
                         <div>
                           <label className="block text-sm font-medium text-gray-600 mb-1">
-                            Time
+                            Event Time
                           </label>
                           <input
                             type="time"
                             value={schedule.event_time}
                             onChange={e => updateSchedule(selectedDay, index, 'event_time', e.target.value)}
-                            className="px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent w-full my-3"
+                            className="px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent w-full"
                             style={{
                               WebkitAppearance: 'none',
                               MozAppearance: 'textfield',
@@ -716,6 +868,7 @@ export function HabitConfiguration() {
                           />
                         </div>
 
+                        {/* Reminder */}
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <label className="block text-sm font-medium text-gray-600">
@@ -726,21 +879,43 @@ export function HabitConfiguration() {
                                 type="checkbox"
                                 className="sr-only peer"
                                 checked={schedule.reminder_time !== null}
-                                onChange={e => updateSchedule(
-                                  selectedDay,
-                                  index,
-                                  'reminder_time',
-                                  e.target.checked ? schedule.event_time : null
-                                )}
+                                onChange={e => {
+                                  if (e.target.checked) {
+                                    // Set reminder time to 5 minutes before event time
+                                    const eventTime = schedule.event_time;
+                                    const [hours, minutes] = eventTime.split(':').map(Number);
+                                    
+                                    // Calculate 5 minutes before
+                                    let newMinutes = minutes - 5;
+                                    let newHours = hours;
+                                    
+                                    // Handle minute underflow
+                                    if (newMinutes < 0) {
+                                      newMinutes = 60 + newMinutes;
+                                      newHours = newHours - 1;
+                                      // Handle hour underflow
+                                      if (newHours < 0) {
+                                        newHours = 23;
+                                      }
+                                    }
+                                    
+                                    // Format back to HH:MM
+                                    const reminderTime = `${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`;
+                                    
+                                    updateSchedule(selectedDay, index, 'reminder_time', reminderTime);
+                                  } else {
+                                    updateSchedule(selectedDay, index, 'reminder_time', null);
+                                  }
+                                }}
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#4CAF50]/30 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4CAF50]"></div>
                             </label>
                           </div>
                           
-                          {(
+                          {schedule.reminder_time !== null && (
                             <input
                               type="time"
-                              value={schedule?.reminder_time ?? ''}
+                              value={schedule.reminder_time}
                               onChange={e => updateSchedule(selectedDay, index, 'reminder_time', e.target.value)}
                               className="px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent w-full"
                               style={{

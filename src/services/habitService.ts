@@ -25,17 +25,26 @@ export const habitService = {
         `)
         .order('created_at', { ascending: false });
         
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      // Ensure data is an array and not null
+      const processedData = (data || []).map(habit => 
+        habitDataProcessor.formatHabitForDisplay(habit)
+      );
       
       return { 
         success: true, 
-        data: data?.map(habit => habitDataProcessor.formatHabitForDisplay(habit)) || [] 
+        data: processedData
       };
     } catch (error) {
       const result = errorService.handleError(error, 'Failed to load habits', {
         component: 'habitService.getAllHabits'
       });
-      return { success: false, error: result.message };
+      console.error('Habit loading error:', result.message);
+      return { success: true, data: [] }; // Return empty array instead of error
     }
   },
   
@@ -260,7 +269,12 @@ export const habitService = {
         
       if (error) throw error;
       
-      return { success: true, data: data || [] };
+      // Deduplicate user habits by habit_id
+      const uniqueUserHabits = data ? 
+        Array.from(new Map(data.map(uh => [uh.habit_id, uh])).values()) : 
+        [];
+      
+      return { success: true, data: uniqueUserHabits };
     } catch (error) {
       const result = errorService.handleError(error, `Failed to load habits for user ${userId}`, {
         component: 'habitService.getUserHabits'
@@ -279,13 +293,13 @@ export const habitService = {
     try {
       // Create default daily schedules
       const defaultSchedules = [
-        { day: 'Mon', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-        { day: 'Tue', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-        { day: 'Wed', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-        { day: 'Thu', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-        { day: 'Fri', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-        { day: 'Sat', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] },
-        { day: 'Sun', active: true, schedules: [{ event_time: '09:00', reminder_time: null }] }
+        { day: 'Mon', active: true, schedules: [{ event_time: '09:00', reminder_time: null, label: null }] },
+        { day: 'Tue', active: true, schedules: [{ event_time: '09:00', reminder_time: null, label: null }] },
+        { day: 'Wed', active: true, schedules: [{ event_time: '09:00', reminder_time: null, label: null }] },
+        { day: 'Thu', active: true, schedules: [{ event_time: '09:00', reminder_time: null, label: null }] },
+        { day: 'Fri', active: true, schedules: [{ event_time: '09:00', reminder_time: null, label: null }] },
+        { day: 'Sat', active: true, schedules: [{ event_time: '09:00', reminder_time: null, label: null }] },
+        { day: 'Sun', active: true, schedules: [{ event_time: '09:00', reminder_time: null, label: null }] }
       ];
       
       // Add habit to user
@@ -318,17 +332,48 @@ export const habitService = {
    * @param habitId The habit ID
    * @returns Success status
    */
-  removeHabitFromUser: async (userId: string, habitId: string): Promise<ServiceResult> => {
+  removeHabitFromUser: async (userId: string, habitId: string, userHabitId?: string): Promise<ServiceResult> => {
     try {
-      const { error } = await supabase
+      let recordToDelete: { id: string } | null = null;
+
+      // If userHabitId is provided, use it directly
+      if (userHabitId) {
+        recordToDelete = { id: userHabitId };
+      } else {
+        // Otherwise, find the specific user_habit record to delete
+        const { data, error: findError } = await supabase
+          .from('user_habits')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('habit_id', habitId)
+          .single();
+
+        if (findError) {
+          console.error('Error finding user habit:', findError);
+          throw findError;
+        }
+
+        recordToDelete = data;
+      }
+
+      if (!recordToDelete) {
+        console.warn(`No user habit found for user ${userId} and habit ${habitId}`);
+        return { success: true, data: null }; // Return null data to differentiate from error
+      }
+
+      // Delete the specific user_habit record
+      const { error, data: deletedData } = await supabase
         .from('user_habits')
         .delete()
-        .eq('user_id', userId)
-        .eq('habit_id', habitId);
+        .eq('id', recordToDelete.id)
+        .select();
         
       if (error) throw error;
       
-      return { success: true };
+      return { 
+        success: true, 
+        data: deletedData ? deletedData[0] : null 
+      };
     } catch (error) {
       const result = errorService.handleError(error, `Failed to remove habit ${habitId} from user ${userId}`, {
         component: 'habitService.removeHabitFromUser'

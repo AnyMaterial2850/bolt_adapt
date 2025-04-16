@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useHabitStore } from '../stores/habitStore';
@@ -96,26 +96,34 @@ export function Home() {
     loadUserHabits(user.id);
   }, [user, navigate, loadHabits, loadUserHabits]);
   
-  // Load completions when user habits or selected date changes
+  // Centralized completion loading effect - the ONLY place completions are loaded
   useEffect(() => {
-    if (userHabits.length > 0) {
+    // Only load completions if we have user habits and we're on the plan tab
+    if (userHabits.length > 0 && activeTab === 'plan') {
+      // The completionStore will internally check if we need to reload 
+      // or if we already have this data loaded recently
       loadCompletions(userHabits.map(h => h.id), selectedDate);
     }
-  }, [userHabits, selectedDate, loadCompletions]);
+  }, [userHabits, selectedDate, activeTab, loadCompletions]);
   
-  const handleToggleCompletion = async (habitId: string, date: Date, eventTime: string) => {
-    const success = await toggleCompletion(habitId, date, eventTime);
-    
-    if (success) {
+  const handleToggleCompletion = async (habitId: string, date: Date, eventTime: string): Promise<boolean> => {
+    try {
+      const success = await toggleCompletion(habitId, date, eventTime);
+      
+      if (!success) {
+        setToast({
+          message: 'Failed to update habit completion. Please try again.',
+          type: 'error'
+        });
+      }
+      
+      return success;
+    } catch (error) {
       setToast({
-        message: `Habit marked as ${completions[`${habitId}-${format(date, 'yyyy-MM-dd')}-${eventTime}`] ? 'incomplete' : 'completed'}`,
-        type: 'success'
-      });
-    } else {
-      setToast({
-        message: 'Failed to update habit completion. Please try again.',
+        message: 'An error occurred while updating habit completion.',
         type: 'error'
       });
+      return false;
     }
   };
 
@@ -124,21 +132,26 @@ export function Home() {
     await loadHabits();
   };
 
-  const handleAddOrRemoveUserHabit = async (habit: Habit, isSelected: boolean) => {
+  const handleAddOrRemoveUserHabit = async (habit: Habit, isSelected: boolean, userHabitId?: string) => {
     if (!user) return;
     
     if (isSelected) {
-      // Remove habit from user
-      await removeHabitFromUser(user.id, habit.id);
+      // Remove habit from user using userHabitId if provided
+      await removeHabitFromUser(user.id, habit.id, userHabitId);
     } else {
       // Add habit to user
-      await addHabitToUser(user.id, habit.id);
-
-      // After adding, check if configuration is needed
-      const needsConfig = !habit.target || habit.target.length === 0 || !habit.frequency;
-      if (needsConfig) {
-        // Navigate to habit tab or open panel
-        navigate(`/habits/${habit.id}`);
+      const success = await addHabitToUser(user.id, habit.id);
+      
+      if (success) {
+        // Find the newly added user habit
+        const userHabit = userHabits.find(uh => uh.habit_id === habit.id);
+        
+        // After adding, check if configuration is needed
+        const needsConfig = !habit.target || habit.target.length === 0 || !habit.frequency;
+        if (needsConfig && userHabit) {
+          // Navigate to habit configuration using the user habit ID
+          navigate(`/habits/${userHabit.id}`);
+        }
       }
     }
   };

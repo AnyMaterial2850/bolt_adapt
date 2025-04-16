@@ -1,102 +1,84 @@
+import { useState, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { HabitItem } from './HabitItem';
-import { CreateHabitModal } from './CreateHabitModal';
-import type { Habit, UserHabit, HabitCategory } from '../../types/database';
-import { useState, useMemo } from 'react';
+import type { Habit, HabitCategory, UserHabit } from '../../types/database';
+import { cn } from '../../lib/utils';
 
 interface HabitListProps {
   habits: Habit[];
   userHabits: UserHabit[];
   category: HabitCategory;
-  onAddOrRemoveHabit: (habit: Habit, isSelected: boolean) => void;
+  onAddOrRemoveHabit: (habit: Habit, isSelected: boolean, userHabitId?: string) => void;
   onAddHabit: () => void;
-  onSelectTarget?: (habitId: string, target: number) => void;
+  onSelectTarget: (habitId: string, target: number) => void;
   selectedTargets: Record<string, number>;
 }
 
-export function HabitList({
-  habits,
-  userHabits,
-  category,
+export function HabitList({ 
+  habits, 
+  userHabits, 
+  category, 
   onAddOrRemoveHabit,
   onAddHabit,
   onSelectTarget,
   selectedTargets
 }: HabitListProps) {
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  console.log(`[HabitList] Received category prop: ${category}`);
-  console.log(`[HabitList] Received ${habits.length} total habits`);
+  // Filter habits by category and search term
+  const filteredHabits = useMemo(() => {
+    return habits.filter(habit => 
+      habit.category === category &&
+      habit.title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [habits, category, searchTerm]);
 
-  // Memoize the set of selected habit IDs for efficient lookup
-  const selectedHabitIds = useMemo(() => {
-    return new Set(userHabits.map(uh => uh.habit_id));
-  }, [userHabits]);
-
-  // Filter all available habits by the active category
-  const filteredHabits = habits.filter(
-    (habit) => habit.category === category
-  );
-  console.log(`[HabitList] Filtered down to ${filteredHabits.length} habits for category: ${category}`);
-
-  const handleTargetSelect = (habitId: string, target: number) => {
-    if (onSelectTarget) {
-      onSelectTarget(habitId, target);
-    }
+  // Determine if a habit is selected
+  const isHabitSelected = (habit: Habit) => {
+    return userHabits.some(uh => uh.habit_id === habit.id);
   };
 
   return (
-    <div className="space-y-4 pt-4 sm:pt-8">
-      <div className="flex items-center justify-between px-1">
-        <p className="text-xs sm:text-sm text-gray-600 max-w-[75%]">
-          Select your habits below, or add your own with the plus
-        </p>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="w-10 h-10 sm:w-12 sm:h-12 bg-primary-500 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-primary-600 transition-colors"
-          aria-label="Add new habit"
-        >
-          <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
-        </button>
+    <div className="space-y-4">
+      {/* Search Input */}
+      <div className="px-4">
+        <input 
+          type="text" 
+          placeholder={`Search ${category} habits`}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+        />
       </div>
 
-      {/* Responsive grid layout that adapts to different screen sizes */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+      {/* Add Habit Button */}
+      <button 
+        onClick={onAddHabit}
+        className="w-full flex items-center justify-center px-4 py-3 bg-primary-50 text-primary-600 hover:bg-primary-100 transition-colors rounded-lg"
+      >
+        <Plus className="w-5 h-5 mr-2" />
+        Add New {category.charAt(0).toUpperCase() + category.slice(1)} Habit
+      </button>
+
+      {/* Habits List */}
+      <div className="space-y-3 px-4">
         {filteredHabits.length === 0 ? (
-          <div className="bg-white rounded-xl p-4 sm:p-6 text-center shadow-sm col-span-full">
-            <p className="text-gray-600 mb-4">No habits in this category yet.</p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="text-primary-600 hover:text-primary-700 font-medium"
-            >
-              Add your first habit
-            </button>
+          <div className="text-center text-gray-500 py-6">
+            No habits found in this category
           </div>
         ) : (
-          filteredHabits.map((habit) => {
-            const isSelected = selectedHabitIds.has(habit.id);
-            return (
-              <HabitItem
-                key={habit.id}
-                habit={habit}
-                isSelected={isSelected}
-                onSelect={onAddOrRemoveHabit}
-                userHabits={userHabits}
-                onSelectTarget={handleTargetSelect}
-                selectedTarget={selectedTargets[habit.id]}
-                selectedTargets={selectedTargets}
-              />
-            );
-          })
+          filteredHabits.map(habit => (
+            <HabitItem 
+              key={habit.id}
+              habit={habit}
+              isSelected={isHabitSelected(habit)}
+              onSelect={onAddOrRemoveHabit}
+              userHabits={userHabits}
+              selectedTargets={selectedTargets}
+            />
+          ))
         )}
       </div>
-
-      <CreateHabitModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onHabitCreated={onAddHabit}
-        category={category}
-      />
     </div>
   );
 }

@@ -16,6 +16,7 @@ interface DebugLog {
 interface DebugState {
   logs: DebugLog[];
   isVisible: boolean;
+  isHealthCheckVisible: boolean;
   addLog: (message: string, type: LogType, details?: { component?: string; error?: Error; 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data?: any 
@@ -23,12 +24,14 @@ interface DebugState {
   clearLogs: () => void;
   setVisible: (visible: boolean) => void;
   toggle: () => void;
+  setHealthCheckVisible: (visible: boolean) => void;
 }
 
 
 export const useDebugStore = create<DebugState>((set) => ({
   logs: [],
   isVisible: false, // Hidden by default
+  isHealthCheckVisible: false, // Health check panel hidden by default
   addLog: (message, type = 'info', details = {}) => {
     const log: DebugLog = {
       message,
@@ -61,4 +64,5 @@ export const useDebugStore = create<DebugState>((set) => ({
   clearLogs: () => set({ logs: [] }),
   setVisible: (visible) => set({ isVisible: visible }),
   toggle: () => set((state) => ({ isVisible: !state.isVisible })),
+  setHealthCheckVisible: (visible) => set({ isHealthCheckVisible: visible }),
 }));

@@ -142,6 +142,7 @@ export interface DaySchedule {
   schedules: {
     event_time: string;
     reminder_time: string | null;
+    label: string | null;
   }[];
 }
 
@@ -166,10 +167,53 @@ export interface HabitCompletion {
   reminder_time: string | null;
 }
 
+// --- Chat Integration Types ---
+
 export interface ChatMessage {
   id: string;
   user_id: string;
+  name: string;          // "User" or "Sonia"
+  type: "human" | "ai";  // Instead of is_ai boolean
   content: string;
-  is_ai: boolean;
-  created_at: string;
+  created_at: string;    // ISO8601 timestamp
+  is_ai?: boolean;       // Keep for potential backward compatibility during migration
+}
+
+export interface ChatPersona {
+  content: string;       // Description of Sonia's coaching style
+  timestamp: string;
+}
+
+export interface ChatReasoning {
+  content: string;       // Why Sonia responded this way
+  timestamp: string;
+}
+
+export interface ChatCritique {
+  content: string;       // Context from past conversations
+  timestamp: string;
+}
+
+// User context to send with API requests
+export interface UserContext {
+  habits: {
+    id: string;
+    title: string;
+    category: string;
+    active: boolean;
+    completions?: {
+      date: string;
+      completed: boolean;
+    }[];
+  }[];
+  goals: {
+    what: string | null;
+    why: string | null;
+    timeline: string | null;
+  };
+  profile: {
+    first_name: string | null;
+    target_weight: number | null;
+    preferred_weight_unit: string | null;
+  };
 }

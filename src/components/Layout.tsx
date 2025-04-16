@@ -1,4 +1,4 @@
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { Tabs } from './ui/Tabs';
 import { HabitCategories } from './habits/HabitCategories';
@@ -97,12 +97,12 @@ export function Layout() {
               <h1 className="text-xl sm:text-2xl font-bold text-fluid-xl sm:text-fluid-2xl">ADAPT</h1>
               {user?.is_admin && (
                 <div className="flex items-center space-x-2 sm:space-x-3">
-                  <a
-                    href="/admin/habits"
-                    className="text-xs sm:text-sm font-medium text-primary-600 hover:text-primary-700"
-                  >
-                    Admin
-                  </a>
+              <Link
+                to="/admin/habits"
+                className="text-xs sm:text-sm font-medium text-primary-600 hover:text-primary-700"
+              >
+                Admin
+              </Link>
                   {process.env.NODE_ENV === 'development' && (
                     <button
                       onClick={() => setShowDebug(!showDebug)}

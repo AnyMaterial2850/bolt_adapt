@@ -2,14 +2,21 @@ import { PlanHabitItem } from './PlanHabitItem';
 import { format } from 'date-fns';
 import type { UserHabit } from '../../types/database';
 import { useOutletContext } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useDebugStore } from '../../stores/debugStore';
+import { useCompletionStore } from '../../stores/completionStore';
 import confetti from 'canvas-confetti';
+
+interface ScheduledHabit {
+  habit: UserHabit;
+  eventTime: string;
+  reminderTime: string | null;
+}
 
 interface PlanTabProps {
   habits: UserHabit[];
-  onToggleCompletion: (habitId: string, date: Date, eventTime: string) => void;
+  onToggleCompletion: (habitId: string, date: Date, eventTime: string) => Promise<boolean>;
   completions: Record<string, boolean>;
 }
 
@@ -21,39 +28,64 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
   const { selectedDate } = useOutletContext<LayoutContext>();
   const [showCelebration, setShowCelebration] = useState(false);
   const { addLog } = useDebugStore();
-  const [localHabits, setLocalHabits] = useState(habits);
-  const activeHabits = localHabits.filter(h => h.active);
-
-  // Sync habits when prop changes
-  useEffect(() => {
-    setLocalHabits(habits);
-  }, [habits]);
+  const { getCompletionStatus } = useCompletionStore();
+  
+  // Pure presentational component - no loading logic
+  // All data loading is handled in Home.tsx
+  
+  // Memoize active habits to prevent unnecessary calculations
+  const activeHabits = useMemo(() => 
+    habits.filter(h => h.active), 
+    [habits]
+  );
 
   // Get the day of week (e.g., 'Mon', 'Tue', etc.)
-  const currentDay = format(selectedDate, 'EEE');
+  const currentDay = useMemo(() => 
+    format(selectedDate, 'EEE'), 
+    [selectedDate]
+  );
 
-  // Get all scheduled habits for the day with their times
-  const scheduledHabits = activeHabits.flatMap(habit => {
-    const daySchedule = habit.daily_schedules.find(s => s.day === currentDay);
-    if (!daySchedule?.active) return [];
+  // Derive scheduled habits from active habits
+  const scheduledHabits = useMemo(() => {
+    const habitItems = activeHabits.flatMap(habit => {
+      const daySchedule = habit.daily_schedules.find(s => s.day === currentDay);
+      if (!daySchedule?.active) return [];
 
-    return daySchedule.schedules.map(schedule => ({
-      habit,
-      eventTime: schedule.event_time,
-      reminderTime: schedule.reminder_time
-    }));
-  }).sort((a, b) => {
-    // Ensure both times exist before comparing
-    if (!a.eventTime || !b.eventTime) return 0;
-    return a.eventTime.localeCompare(b.eventTime);
-  });
+      // One card per schedule
+      return daySchedule.schedules.map(schedule => ({
+        habit,
+        eventTime: schedule.event_time,
+        reminderTime: schedule.reminder_time
+      }));
+    }).sort((a, b) => {
+      // Extract the base time for comparison (remove the -index suffix if present)
+      const getBaseTime = (time: string) => time.split('-')[0];
+      const baseTimeA = getBaseTime(a.eventTime);
+      const baseTimeB = getBaseTime(b.eventTime);
+      
+      // First sort by base time
+      const baseTimeComparison = baseTimeA.localeCompare(baseTimeB);
+      if (baseTimeComparison !== 0) return baseTimeComparison;
+      
+      // If base times are the same, sort by event index
+      if (a.eventTime.includes('-') && b.eventTime.includes('-')) {
+        const indexA = parseInt(a.eventTime.split('-')[1]);
+        const indexB = parseInt(b.eventTime.split('-')[1]);
+        return indexA - indexB;
+      }
+      
+      return 0;
+    });
 
-  // Handle reminder toggle
-  const handleReminderToggle = async (habitId: string, eventTime: string, newReminderTime: string | null) => {
+    return habitItems;
+  }, [activeHabits, currentDay]);
+
+  // Handle reminder toggle (this needs to stay in this component)
+  const handleReminderToggle = useCallback(async (habitId: string, eventTime: string, newReminderTime: string | null): Promise<void> => {
     try {
       addLog(`${newReminderTime ? 'Adding' : 'Removing'} reminder...`, 'info');
 
-      const habit = localHabits.find(h => h.id === habitId);
+      const habit = habits.find(h => h.id === habitId);
       if (!habit) throw new Error('Habit not found');
 
       // Update the daily schedules
@@ -70,14 +102,7 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
           : schedule
       );
 
-      // Optimistically update local state
-      setLocalHabits(prev => 
-        prev.map(h => 
-          h.id === habitId
-            ? { ...h, daily_schedules: updatedDailySchedules }
-            : h
-        )
-      );
+      // No local state changes needed - let the parent component handle refreshing data
 
       const { error } = await supabase
         .from('user_habits')
@@ -88,12 +113,6 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
         .eq('id', habitId);
 
       if (error) {
-        // Revert local state on error
-        setLocalHabits(prev => 
-          prev.map(h => 
-            h.id === habitId ? habit : h
-          )
-        );
         throw error;
       }
 
@@ -103,14 +122,15 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
       addLog(`Failed to update reminder: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
       throw err;
     }
-  };
+  }, [habits, currentDay, addLog]);
 
-  // Check if all habits are completed
+  // Check if all habits are completed - celebration effect
   useEffect(() => {
     if (scheduledHabits.length === 0) return;
 
     const allCompleted = scheduledHabits.every(({ habit, eventTime }) => {
-      const habitKey = `${habit.id}-${format(selectedDate, 'yyyy-MM-dd')}-${eventTime}`;
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      const habitKey = `${habit.id}-${dateStr}-${eventTime}`;
       return completions[habitKey];
     });
 
@@ -141,8 +161,14 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
             </div>
           ) : (
             scheduledHabits.map(({ habit, eventTime, reminderTime }, index) => {
-              const habitKey = `${habit.id}-${format(selectedDate, 'yyyy-MM-dd')}-${eventTime}`;
+              const dateStr = format(selectedDate, 'yyyy-MM-dd');
+              const habitKey = `${habit.id}-${dateStr}-${eventTime}`;
               const isCompleted = completions[habitKey] || false;
+              
+              // Extract event number from eventTime if it's a sub-event
+              const displayTitle = eventTime.includes('-')
+                ? `Event ${parseInt(eventTime.split('-')[1]) + 1}`
+                : undefined;
 
               return (
                 <PlanHabitItem
@@ -152,9 +178,10 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
                   reminderTime={reminderTime}
                   isCompleted={isCompleted}
                   onToggle={() => onToggleCompletion(habit.id, selectedDate, eventTime)}
-                  onReminderToggle={(newReminderTime) => 
+                  onReminderToggle={(newReminderTime: string | null) => 
                     handleReminderToggle(habit.id, eventTime, newReminderTime)
                   }
+                  displayTitle={displayTitle}
                 />
               );
             })

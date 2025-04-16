@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat API Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    .message {
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    .user-message {
+      background-color: #e1f5fe;
+      align-self: flex-end;
+    }
+    .ai-message {
+      background-color: #f0f4c3;
+    }
+    .metadata {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f9f9f9;
+      border-radius: 5px;
+    }
+    .metadata h3 {
+      margin-top: 0;
+    }
+    .typing-indicator {
+      display: inline-block;
+      margin-left: 5px;
+    }
+    .typing-indicator span {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background-color: #333;
+      border-radius: 50%;
+      margin-right: 3px;
+      animation: bounce 1s infinite;
+    }
+    .typing-indicator span:nth-child(2) {
+      animation-delay: 0.1s;
+    }
+    .typing-indicator span:nth-child(3) {
+      animation-delay: 0.2s;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    #streaming-content {
+      white-space: pre-wrap;
+    }
+    button {
+      padding: 8px 16px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    input {
+      padding: 8px;
+      width: 70%;
+      margin-right: 10px;
+    }
+    .form-group {
+      display: flex;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Chat API Test</h1>
+  
+  <div class="form-group">
+    <input type="text" id="message-input" placeholder="Type a message..." value="Hi Sonia, can you give me a habit coaching tip?">
+    <button id="send-button">Send</button>
+  </div>
+  
+  <div id="messages"></div>
+  
+  <div id="streaming-container" style="display: none;">
+    <div class="message ai-message">
+      <div id="streaming-content"></div>
+      <div class="typing-indicator">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="metadata" id="persona-container" style="display: none;">
+    <h3>How Sonia Coaches</h3>
+    <pre id="persona-content"></pre>
+  </div>
+  
+  <div class="metadata" id="reasoning-container" style="display: none;">
+    <h3>Why Sonia Said This</h3>
+    <pre id="reasoning-content"></pre>
+  </div>
+  
+  <div class="metadata" id="critique-container" style="display: none;">
+    <h3>Reflection From Past Chats</h3>
+    <pre id="critique-content"></pre>
+  </div>
+  
+  <script type="module">
+    import { fetchEventSource } from 'https://cdn.jsdelivr.net/npm/@microsoft/fetch-event-source@2.0.1/+esm';
+    
+    // Sample user context
+    const userContext = {
+      profile: {
+        first_name: "Test",
+        target_weight: 70,
+        preferred_weight_unit: "kg"
+      },
+      goals: {
+        what: "Improve fitness",
+        why: "To feel better and have more energy",
+        timeline: "3 months"
+      },
+      habits: [
+        {
+          id: "habit1",
+          title: "Daily walk",
+          category: "move",
+          active: true,
+          completions: [
+            { date: "2025-04-11", completed: true },
+            { date: "2025-04-10", completed: true },
+            { date: "2025-04-09", completed: false }
+          ]
+        }
+      ]
+    };
+    
+    const API_URL = 'https://alpha.api.intellaigent.starti.no/experts/call';
+    const EXPERT_ID = '8eff22ed-67ec-43f6-9050-662ae79f585b';
+    
+    // Generate a UUID
+    function uuidv4() {
+      return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+      );
+    }
+    
+    // Add a message to the UI
+    function addMessage(content, isAi = false) {
+      const messagesContainer = document.getElementById('messages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${isAi ? 'ai-message' : 'user-message'}`;
+      messageDiv.textContent = content;
+      messagesContainer.appendChild(messageDiv);
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+    
+    // Send a message to the API
+    async function sendMessage(content) {
+      // Clear previous metadata
+      document.getElementById('persona-container').style.display = 'none';
+      document.getElementById('reasoning-container').style.display = 'none';
+      document.getElementById('critique-container').style.display = 'none';
+      
+      // Add user message to UI
+      addMessage(content, false);
+      
+      // Prepare the message
+      const userMessage = {
+        id: uuidv4(),
+        name: "User",
+        type: "human",
+        content: content,
+        created_at: new Date().toISOString()
+      };
+      
+      // Prepare the request payload with all required fields
+      const payload = {
+        message_id: uuidv4(),
+        messages: [{
+          id: uuidv4(),
+          name: 'User',
+          type: 'human',
+          content: content,
+          created_at: new Date().toISOString()
+        }],
+        expert: {
+          id: EXPERT_ID,
+          name: 'Sonia',
+          description: 'Your habit coach',
+          instructions_responder: 'Be warm and encouraging',
+          instructions_personator: 'Sonia is an expert in habit coaching',
+          documents: []
+        },
+        timezone_offset: new Date().getTimezoneOffset() / -60 // Convert minutes to hours and invert sign
+      };
+      
+      // Show streaming container
+      const streamingContainer = document.getElementById('streaming-container');
+      streamingContainer.style.display = 'block';
+      const streamingContent = document.getElementById('streaming-content');
+      streamingContent.textContent = '';
+      
+      // Log the request payload for debugging
+      console.log('Request payload:', payload);
+      
+      try {
+        // First try a regular fetch to see the error response
+        try {
+          const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Origin': window.location.origin
+            },
+            body: JSON.stringify(payload)
+          });
+          
+          const responseData = await response.text();
+          console.log('Response status:', response.status);
+          console.log('Response headers:', Object.fromEntries([...response.headers]));
+          console.log('Response body:', responseData);
+          
+          if (!response.ok) {
+            addMessage(`Error: ${response.status} ${response.statusText}. See console for details.`, true);
+            return;
+          }
+        } catch (fetchErr) {
+          console.error('Regular fetch error:', fetchErr);
+        }
+        
+        // Then try with fetchEventSource
+        await fetchEventSource(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': window.location.origin,
+            'Accept': 'text/event-stream'
+          },
+          body: JSON.stringify(payload),
+          onopen(res) {
+            if (res.ok && res.headers.get('content-type')?.includes('text/event-stream')) {
+              console.log('Connection opened successfully');
+            } else {
+              console.error(`Failed to open connection: ${res.status} ${res.statusText}`);
+              throw new Error(`Failed to open connection: ${res.status} ${res.statusText}`);
+            }
+          },
+          onmessage(msg) {
+            const event = msg.event;
+            const data = JSON.parse(msg.data);
+            
+            switch (event) {
+              case 'on_critiques':
+                console.log('[CRITIQUE]', data.content);
+                document.getElementById('critique-content').textContent = data.content;
+                document.getElementById('critique-container').style.display = 'block';
+                break;
+              case 'on_reasoning':
+                console.log('[REASONING]', data.content);
+                document.getElementById('reasoning-content').textContent = data.content;
+                document.getElementById('reasoning-container').style.display = 'block';
+                break;
+              case 'on_persona':
+                console.log('[PERSONA]', data.content);
+                document.getElementById('persona-content').textContent = data.content;
+                document.getElementById('persona-container').style.display = 'block';
+                break;
+              case 'on_response_stream':
+                streamingContent.textContent = data.content;
+                break;
+              case 'on_response_end':
+                // Hide streaming container
+                streamingContainer.style.display = 'none';
+                // Add final AI message
+                addMessage(data.content, true);
+                console.log('Test completed successfully!');
+                break;
+              default:
+                console.log('[UNHANDLED EVENT]', event, data);
+            }
+          },
+          onerror(err) {
+            console.error('Error:', err);
+            streamingContainer.style.display = 'none';
+            addMessage(`Error: ${err.message}`, true);
+          }
+        });
+      } catch (err) {
+        console.error('Failed to connect:', err);
+        streamingContainer.style.display = 'none';
+        addMessage(`Error: ${err.message}`, true);
+      }
+    }
+    
+    // Set up event listeners
+    document.getElementById('send-button').addEventListener('click', () => {
+      const input = document.getElementById('message-input');
+      const message = input.value.trim();
+      if (message) {
+        sendMessage(message);
+        input.value = '';
+      }
+    });
+    
+    document.getElementById('message-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const input = document.getElementById('message-input');
+        const message = input.value.trim();
+        if (message) {
+          sendMessage(message);
+          input.value = '';
+        }
+      }
+    });
+  </script>
+</body>
+</html>

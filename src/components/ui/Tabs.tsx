@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '../../lib/utils';
+import { HABIT_CATEGORIES, HabitCategory } from '../../config/categories';
 
 interface Tab {
   id: string;
@@ -13,15 +14,11 @@ interface TabsProps {
 }
 
 export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
-  console.log('[Tabs] Rendered with activeTab:', activeTab);
-
   const [pillStyle, setPillStyle] = useState({ left: 0, width: 0 });
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Update pill position when active tab changes or on window resize
   useEffect(() => {
-    console.log('[Tabs] useEffect triggered with activeTab:', activeTab);
-
     const updatePillPosition = () => {
       const activeIndex = tabs.findIndex(tab => tab.id === activeTab);
       const activeTabElement = tabsRef.current[activeIndex];
@@ -50,8 +47,27 @@ export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
     return () => window.removeEventListener('resize', updatePillPosition);
   }, [activeTab, tabs]);
 
+  // Mapping of tab IDs to background colors
+  const backgroundColors: Record<HabitCategory, string> = {
+    eat: 'bg-eat-500',
+    move: 'bg-move-500', 
+    mind: 'bg-mind-500',
+    sleep: 'bg-sleep-500'
+  };
+
+  // Mapping of tab IDs to text colors
+  const textColors: Record<HabitCategory, string> = {
+    eat: 'text-eat-500',
+    move: 'text-move-500', 
+    mind: 'text-mind-500',
+    sleep: 'text-sleep-500'
+  };
+
   return (
-    <div className="relative flex rounded-full bg-primary-500 p-1 max-w-full mx-auto">
+    <div className={cn(
+      "relative flex rounded-full p-1 max-w-full mx-auto",
+      backgroundColors[activeTab as HabitCategory] || 'bg-primary-500'
+    )}>
       {/* Animated pill background */}
       <div
         className="absolute bg-white rounded-full shadow-sm transition-all duration-300 ease-in-out"
@@ -68,14 +84,11 @@ export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
         <button
           key={tab.id}
           ref={el => tabsRef.current[index] = el}
-          onClick={() => {
-            console.log('[Tabs] onClick tab.id:', tab.id, 'current activeTab:', activeTab);
-            onChange(tab.id);
-          }}
+          onClick={() => onChange(tab.id)}
           className={cn(
             "relative flex-1 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors",
             activeTab === tab.id 
-              ? "text-primary-500 font-bold" 
+              ? `${textColors[tab.id as HabitCategory]} font-bold` 
               : "text-white font-medium hover:text-white/90"
           )}
         >

@@ -1,83 +1,79 @@
+const colors = require('tailwindcss/colors');
+
 /** @type {import('tailwindcss').Config} */
-export default {
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+module.exports = {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
   theme: {
-    screens: {
-      'xs': '375px',
-      'sm': '640px',
-      'md': '768px',
-      'lg': '1024px',
-      'xl': '1280px',
-      '2xl': '1536px',
-    },
     extend: {
       colors: {
-        primary: {
-          DEFAULT: '#007FFF',
-          50: '#E0F0FF',
-          100: '#CCE4FF',
-          200: '#99C9FF',
-          300: '#66ADFF',
-          400: '#3392FF',
-          500: '#007FFF',
-          600: '#0066CC',
-          700: '#004C99',
-          800: '#003366',
-          900: '#001933',
+        primary: colors.blue,
+        success: colors.green,
+        warning: colors.yellow,
+        error: colors.red,
+        
+        // Brand Category Colors
+        eat: {
+          50: '#F9FBE7',
+          100: '#F0F4C3',
+          200: '#E6EE9C',
+          300: '#DCE775',
+          400: '#D4E157',
+          500: '#C3D900', // Specific yellow hex as requested
+          600: '#AFB42B',
+          700: '#9E9D24',
+          800: '#827717',
+          900: '#694F00',
         },
-        success: {
-          DEFAULT: '#32CD32',
-          500: '#32CD32',
-          600: '#28A428',
+        move: {
+          50: '#FFF3E0',
+          100: '#FFE0B2',
+          200: '#FFCC80',
+          300: '#FFB74D',
+          400: '#FFA726',
+          500: '#FF9800', // Primary Brand Color
+          600: '#FB8C00',
+          700: '#F57C00',
+          800: '#EF6C00',
+          900: '#E65100',
         },
-        gray: {
-          50: '#F9FAFB',
-          100: '#F3F4F6',
-          200: '#E5E7EB',
-          300: '#D1D5DB',
-          400: '#9CA3AF',
-          500: '#6B7280',
-          600: '#4B5563',
-          700: '#374151',
-          800: '#1F2937',
-          900: '#111827',
+        mind: {
+          50: '#F3E5F5',
+          100: '#E1BEE7',
+          200: '#CE93D8',
+          300: '#BA68C8',
+          400: '#AB47BC',
+          500: '#9C27B0', // Primary Brand Color
+          600: '#8E24AA',
+          700: '#7B1FA2',
+          800: '#6A1B9A',
+          900: '#4A148C',
+        },
+        sleep: {
+          50: '#E8EAF6',
+          100: '#C5CAE9',
+          200: '#9FA8DA',
+          300: '#7986CB',
+          400: '#5C6BC0',
+          500: '#3F51B5', // Primary Brand Color
+          600: '#3949AB',
+          700: '#303F9F',
+          800: '#283593',
+          900: '#1A237E',
         }
       },
-      fontFamily: {
-        sans: ['Montserrat', 'sans-serif'],
-      },
-      fontSize: {
-        'xs': ['0.75rem', { lineHeight: '1rem' }],
-        'sm': ['0.875rem', { lineHeight: '1.25rem' }],
-        'base': ['1rem', { lineHeight: '1.5rem' }],
-        'lg': ['1.125rem', { lineHeight: '1.75rem' }],
-        'xl': ['1.25rem', { lineHeight: '1.75rem' }],
-        '2xl': ['1.5rem', { lineHeight: '2rem' }],
-        // Fluid typography variants
-        'fluid-base': ['clamp(0.875rem, 0.8rem + 0.375vw, 1rem)', { lineHeight: '1.5' }],
-        'fluid-lg': ['clamp(1rem, 0.9rem + 0.5vw, 1.125rem)', { lineHeight: '1.5' }],
-        'fluid-xl': ['clamp(1.125rem, 1rem + 0.625vw, 1.25rem)', { lineHeight: '1.4' }],
-        'fluid-2xl': ['clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem)', { lineHeight: '1.4' }],
-      },
-      spacing: {
-        // Responsive spacing values
-        'safe-top': 'env(safe-area-inset-top, 0px)',
-        'safe-bottom': 'env(safe-area-inset-bottom, 16px)',
-        'safe-left': 'env(safe-area-inset-left, 0px)',
-        'safe-right': 'env(safe-area-inset-right, 0px)',
-      },
       animation: {
-        'spin-slow': 'spin 2s linear infinite',
+        'celebrate': 'bounce 1s ease-in-out 2',
+      },
+      keyframes: {
+        bounce: {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.1)' },
+        }
       }
     },
   },
   plugins: [],
-  future: {
-    hoverOnlyWhenSupported: true,
-  },
-  variants: {
-    extend: {
-      opacity: ['disabled'],
-    },
-  },
 }

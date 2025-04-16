@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PlanHabitItem Test</title>
+  <script type="module">
+    import React from 'react';
+    import ReactDOM from 'react-dom/client';
+    import { PlanHabitItem } from './src/components/plan/PlanHabitItem';
+    import './src/index.css';
+
+    // Sample habit data
+    const sampleHabit = {
+      id: 'test-habit-1',
+      habit: {
+        id: 'habit-1',
+        title: 'Protein target',
+        description: 'Setting a protein intake goal of 1.2 g per kg of body weight supports muscle maintenance and overall health.',
+        icon: 'mdi:food-apple',
+        category: 'eat',
+        target: [1.2],
+        unit: 'gram per kgs',
+        content_type: 'link',
+        content_url: 'https://example.com/protein-info',
+        content_title: 'Protein Intake Guidelines',
+        content_description: 'Learn more about optimal protein intake for your goals.'
+      },
+      daily_schedules: [
+        {
+          day: 0,
+          schedules: [
+            {
+              event_time: '09:00',
+              reminder_time: '08:55',
+              label: 'Breakfast'
+            }
+          ]
+        }
+      ],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Sample with reminder
+    const withReminder = {
+      ...sampleHabit,
+      id: 'test-habit-2'
+    };
+
+    // Sample without reminder
+    const withoutReminder = {
+      ...sampleHabit,
+      id: 'test-habit-3',
+      daily_schedules: [
+        {
+          day: 0,
+          schedules: [
+            {
+              event_time: '09:00',
+              reminder_time: null,
+              label: 'Breakfast'
+            }
+          ]
+        }
+      ]
+    };
+
+    // Sample completed
+    const completed = {
+      ...sampleHabit,
+      id: 'test-habit-4'
+    };
+
+    function TestApp() {
+      const [isCompleted, setIsCompleted] = React.useState(false);
+      
+      const handleToggle = () => {
+        setIsCompleted(!isCompleted);
+      };
+      
+      const handleReminderToggle = async (newReminderTime) => {
+        console.log('Reminder toggled:', newReminderTime);
+        return Promise.resolve();
+      };
+      
+      return (
+        <div className="p-4 max-w-md mx-auto space-y-6">
+          <h1 className="text-xl font-bold mb-4">PlanHabitItem Test</h1>
+          
+          <div>
+            <h2 className="font-medium mb-2">With Reminder:</h2>
+            <PlanHabitItem
+              habit={withReminder}
+              eventTime="09:00"
+              reminderTime="08:55"
+              isCompleted={false}
+              onToggle={handleToggle}
+              onReminderToggle={handleReminderToggle}
+            />
+          </div>
+          
+          <div>
+            <h2 className="font-medium mb-2">Without Reminder:</h2>
+            <PlanHabitItem
+              habit={withoutReminder}
+              eventTime="09:00"
+              reminderTime={null}
+              isCompleted={false}
+              onToggle={handleToggle}
+              onReminderToggle={handleReminderToggle}
+            />
+          </div>
+          
+          <div>
+            <h2 className="font-medium mb-2">Completed:</h2>
+            <PlanHabitItem
+              habit={completed}
+              eventTime="09:00"
+              reminderTime="08:55"
+              isCompleted={true}
+              onToggle={handleToggle}
+              onReminderToggle={handleReminderToggle}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <React.StrictMode>
+        <TestApp />
+      </React.StrictMode>
+    );
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+</body>
+</html>

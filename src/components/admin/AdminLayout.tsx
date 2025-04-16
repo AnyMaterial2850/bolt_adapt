@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft, LayoutGrid, BarChart as ChartBar, Database } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -37,9 +37,9 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
           {/* Navigation */}
           <div className="flex space-x-6 h-12 -mb-px">
             {navItems.map(({ icon: Icon, label, href }) => (
-              <a
+              <Link
                 key={href}
-                href={href}
+                to={href}
                 className={cn(
                   "flex items-center gap-2 px-1 border-b-2 text-sm font-medium transition-colors",
                   currentPath === href
@@ -49,7 +49,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
               >
                 <Icon className="w-4 h-4" />
                 {label}
-              </a>
+              </Link>
             ))}
           </div>
         </div>

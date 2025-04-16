@@ -46,7 +46,7 @@ export function HabitContent({ habit, onSelectTarget, selectedTarget, selectedTa
               <img
                 src={item.url}
                 alt={item.title}
-                className="w-full max-h-[300px] sm:max-h-[400px] md:max-h-[500px] object-contain mx-auto"
+                className="w-full max-h-[300px] sm:max-h-[400px] md:max-h-[500px] object-contain"
                 loading="lazy"
               />
             </div>
@@ -101,12 +101,15 @@ export function HabitContent({ habit, onSelectTarget, selectedTarget, selectedTa
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Target Selector Section */}
-      {habit.target && habit.target.length > 0 && onSelectTarget && (
-        <HabitTargetSelector 
-          habit={habit} 
-          selectedTarget={localSelectedTarget} 
-          onSelectTarget={handleSelectTarget} 
+      {/* Target Selector Section - only show if no target is selected yet */}
+      {habit.target && 
+       habit.target.length > 0 && 
+       onSelectTarget && 
+       (selectedTargets[habit.id] === undefined) && (
+        <HabitTargetSelector
+          habit={habit}
+          selectedTarget={localSelectedTarget}
+          onSelectTarget={handleSelectTarget}
           selectedTargets={selectedTargets}
         />
       )}
@@ -147,9 +150,9 @@ export function HabitContent({ habit, onSelectTarget, selectedTarget, selectedTa
       {habit.bottom_line_items && habit.bottom_line_items.length > 0 && (
         <div className="space-y-2 sm:space-y-3">
           <h3 className="font-medium text-gray-900 text-sm sm:text-base">The Bottom Line</h3>
-          <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-3 sm:space-y-4 text-left">
             {habit.bottom_line_items.map((item, index) => (
-              <div key={index}>
+              <div key={index} className="text-left">
                 {renderContentItem(item)}
               </div>
             ))}
@@ -161,7 +164,7 @@ export function HabitContent({ habit, onSelectTarget, selectedTarget, selectedTa
       {habit.go_deeper_titles && habit.go_deeper_titles.length > 0 && (
         <div className="space-y-2 sm:space-y-3">
           <h3 className="font-medium text-gray-900 text-sm sm:text-base">Go Deeper</h3>
-          <div className="space-y-1 sm:space-y-2">
+          <div className="space-y-1 sm:space-y-2 text-left">
             {habit.go_deeper_titles.map((title, index) => (
               <a
                 key={index}

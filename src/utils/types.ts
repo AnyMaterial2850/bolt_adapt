@@ -33,6 +33,6 @@ export interface HabitFormData {
  */
 export interface ServiceResult<T = void> {
   success: boolean;
-  data?: T;
+  data?: T | null;
   error?: string;
 }

@@ -68,13 +68,14 @@ export function HabitTable({ habits, onEdit, onDelete, isLoading, disabled }: Ha
               >
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
-                      <HabitIcon 
-                        icon={habit.icon} 
-                        category={habit.category} 
-                        className="text-primary-500"
-                      />
-                    </div>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${habit.category ? `bg-${habit.category}-100` : 'bg-primary-100'}`}>
+                    <HabitIcon 
+                      icon={habit.icon} 
+                      category={habit.category} 
+                      className="w-5 h-5"
+                      colorByCategory={true}
+                    />
+                  </div>
                     <div className="text-sm font-medium text-gray-900">
                       {habit.title}
                     </div>
@@ -207,11 +208,12 @@ export function HabitTable({ habits, onEdit, onDelete, isLoading, disabled }: Ha
           <div key={habit.id} className="border rounded-lg p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${habit.category ? `bg-${habit.category}-100` : 'bg-primary-100'}`}>
                   <HabitIcon 
                     icon={habit.icon} 
                     category={habit.category} 
-                    className="text-primary-500"
+                    className="w-5 h-5" 
+                    colorByCategory={true}
                   />
                 </div>
                 <div>

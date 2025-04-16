@@ -94,6 +94,8 @@ export function ManageHabits() {
   const startEditing = (habit: Habit) => {
     setEditingHabit(habit);
     setIsEditing(true);
+    // Prevent default navigation
+    return false;
   };
 
   if (!user?.is_admin) return null;

@@ -13,6 +13,8 @@ import { useDebugStore } from './stores/debugStore';
 import { Layout } from './components/Layout';
 import { HealthCheck } from './components/shared/HealthCheck';
 import { ConnectionStatus } from './components/ConnectionStatus';
+import { DebugPanel } from './components/DebugPanel';
+import { DebugActivator } from './components/DebugActivator';
 import Profile from './pages/Profile/Profile';
 import { useReminderNotifications } from './hooks/useReminderNotifications';
 
@@ -20,13 +22,22 @@ function App() {
   const { loadUser, loading, user } = useAuthStore();
   const { addLog } = useDebugStore();
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [appVersion] = useState(import.meta.env.VITE_APP_VERSION || '0.1.0');
+  const [buildTime] = useState(import.meta.env.VITE_BUILD_TIME || new Date().toISOString());
 
   useReminderNotifications();
 
   useEffect(() => {
     const init = async () => {
       try {
-        addLog('Initializing application...', 'info');
+        addLog('Initializing application...', 'info', {
+          component: 'App',
+          data: {
+            version: appVersion,
+            buildTime,
+            environment: import.meta.env.MODE
+          }
+        });
         
         const isConnected = await checkSupabaseConnection();
         if (!isConnected) {
@@ -45,7 +56,7 @@ function App() {
     };
 
     init();
-  }, [loadUser, addLog]);
+  }, [loadUser, addLog, appVersion, buildTime]);
 
   if (connectionError) {
     return (
@@ -62,6 +73,8 @@ function App() {
             </button>
           </div>
         </div>
+        <DebugActivator />
+        <DebugPanel />
       </div>
     );
   }
@@ -70,6 +83,8 @@ function App() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
+        <DebugActivator />
+        <DebugPanel />
       </div>
     );
   }
@@ -136,6 +151,15 @@ function App() {
       </Routes>
       <HealthCheck />
       <ConnectionStatus />
+      <DebugActivator />
+      <DebugPanel />
+      
+      {/* Version info in production */}
+      {import.meta.env.MODE === 'production' && (
+        <div className="fixed bottom-1 right-1 text-[8px] text-gray-400 opacity-50 z-10">
+          v{appVersion}
+        </div>
+      )}
     </Router>
   );
 }

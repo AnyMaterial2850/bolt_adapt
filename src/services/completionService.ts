@@ -8,11 +8,13 @@ export const completionService = {
    * Get completions for a user's habits on a specific date
    * @param userHabitIds The IDs of the user's habits
    * @param date The date to get completions for
+   * @param forceReload Whether to bypass any potential caching
    * @returns A map of completion keys to completion status
    */
   getCompletions: async (
     userHabitIds: string[], 
-    date: Date
+    date: Date,
+    forceReload: boolean = false
   ): Promise<ServiceResult<Record<string, boolean>>> => {
     try {
       if (userHabitIds.length === 0) {
@@ -34,13 +36,20 @@ export const completionService = {
       // Create a map of completions
       const completionsMap: Record<string, boolean> = {};
       data?.forEach(completion => {
-        // Format evt_time to match the format used in the UI (HH:mm)
-        const timeStr = completion.evt_time.split(' ')[0]; // Extract time part before AM/PM
-        const [hours, minutes] = timeStr.split(':');
-        const formattedTime = `${hours.padStart(2, '0')}:${minutes}`;
-        
-        const key = `${completion.user_habit_id}-${completion.date}-${formattedTime}`;
-        completionsMap[key] = true;
+        // Check if this is a sub-event (format: HH:MM-index)
+        if (completion.evt_time.includes('-')) {
+          // For sub-events, use the original format
+          const key = `${completion.user_habit_id}-${completion.date}-${completion.evt_time}`;
+          completionsMap[key] = true;
+        } else {
+          // Format evt_time to match the format used in the UI (HH:mm)
+          const timeStr = completion.evt_time.split(' ')[0]; // Extract time part before AM/PM
+          const [hours, minutes] = timeStr.split(':');
+          const formattedTime = `${hours.padStart(2, '0')}:${minutes}`;
+          
+          const key = `${completion.user_habit_id}-${completion.date}-${formattedTime}`;
+          completionsMap[key] = true;
+        }
       });
       
       return { success: true, data: completionsMap };
@@ -56,7 +65,7 @@ export const completionService = {
    * Mark a habit as completed
    * @param habitId The user habit ID
    * @param date The date of completion
-   * @param eventTime The time of completion (HH:MM format)
+   * @param eventTime The time of completion (HH:MM format or HH:MM-index for sub-events)
    * @returns Success status
    */
   markCompleted: async (
@@ -74,7 +83,15 @@ export const completionService = {
       }
       
       const dateStr = format(date, 'yyyy-MM-dd');
-      const formattedTime = formatToSupabaseTime(eventTime);
+      
+      // Handle sub-events (format: HH:MM-index)
+      let formattedTime: string;
+      if (eventTime.includes('-')) {
+        // For sub-events, we keep the original format to distinguish between different sub-events
+        formattedTime = eventTime;
+      } else {
+        formattedTime = formatToSupabaseTime(eventTime);
+      }
       
       // First try to delete any existing completion for this habit and date
       await supabase
@@ -109,7 +126,7 @@ export const completionService = {
    * Mark a habit as incomplete
    * @param habitId The user habit ID
    * @param date The date of completion
-   * @param eventTime The time of completion (HH:MM format)
+   * @param eventTime The time of completion (HH:MM format or HH:MM-index for sub-events)
    * @returns Success status
    */
   markIncomplete: async (
@@ -119,7 +136,15 @@ export const completionService = {
   ): Promise<ServiceResult> => {
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
-      const formattedTime = formatToSupabaseTime(eventTime);
+      
+      // Handle sub-events (format: HH:MM-index)
+      let formattedTime: string;
+      if (eventTime.includes('-')) {
+        // For sub-events, we keep the original format to distinguish between different sub-events
+        formattedTime = eventTime;
+      } else {
+        formattedTime = formatToSupabaseTime(eventTime);
+      }
       
       // Delete the completion
       const { error } = await supabase

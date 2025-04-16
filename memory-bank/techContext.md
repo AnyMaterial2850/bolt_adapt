@@ -37,4 +37,4 @@
 ## Build & Deployment
 
 - **Build Tool:** Vite, configured with manual vendor chunking and minification via Terser (dropping console/debugger logs in production).
-- **Deployment:** Netlify configuration present (`netlify.toml`). Deployment target likely Netlify.
+- **Deployment:** Vercel is used as the deployment platform. Project is linked to Vercel as evidenced by the `.vercel` directory.

@@ -82,7 +82,8 @@ export function HabitForm({
     setLoadingIcons(true);
     try {
       addLog('Searching icons...', 'info');
-      const response = await fetch(`https://api.iconify.design/search?query=${encodeURIComponent(query)}&limit=30`);
+      // Restrict search to only Material Design Icons (MDI) set for consistency
+      const response = await fetch(`https://api.iconify.design/search?query=${encodeURIComponent(query)}&prefix=mdi&limit=30`);
       if (!response.ok) throw new Error('Failed to fetch icons');
       
       const data = await response.json();
@@ -428,16 +429,13 @@ export function HabitForm({
           Icon <span className="text-gray-400 text-xs">(optional)</span>
         </label>
         <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 rounded-lg bg-primary-100 flex items-center justify-center">
-            {formData.icon ? (
-              <Icon icon={formData.icon} className="w-8 h-8 text-primary-500" />
-            ) : (
-              <HabitIcon 
-                icon={null} 
-                category={formData.category} 
-                className="w-8 h-8 text-primary-500" 
-              />
-            )}
+          <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center">
+            <HabitIcon 
+              icon={formData.icon || null}
+              category={formData.category}
+              className="w-7 h-7"
+              colorByCategory={true}
+            />
           </div>
           <Button
             type="button"
