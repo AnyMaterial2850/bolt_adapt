@@ -10,6 +10,7 @@ import { useDebugStore } from '../stores/debugStore';
 import { Avatar } from './ui/Avatar';
 import { DebugPanel } from './DebugPanel';
 import useAppStore from '../stores/appStore';
+import packageJson from '../../package.json';
 
 export function Layout() {
   const navigate = useNavigate();
@@ -187,6 +188,11 @@ export function Layout() {
 
       {/* Debug Panel */}
       {showDebug && <DebugPanel />}
+
+      {/* Version Number Display */}
+      <footer className="fixed bottom-0 right-0 m-2 p-1 bg-gray-100 text-xs text-gray-600 rounded shadow-inner select-none pointer-events-none z-50">
+        v{packageJson.version}
+      </footer>
     </div>
   );
 }
