@@ -24,18 +24,26 @@ interface LayoutContext {
   selectedDate: Date;
 }
 
+import { DebugNotificationButton } from './DebugNotificationButton';
+import { DebugPushNotificationButton } from './DebugPushNotificationButton';
+
 export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProps) {
   const { selectedDate } = useOutletContext<LayoutContext>();
   const [showCelebration, setShowCelebration] = useState(false);
   const { addLog } = useDebugStore();
   const { getCompletionStatus } = useCompletionStore();
   
+  // Debugging function - add a button to directly examine habits data
+  const [showDebugData, setShowDebugData] = useState(false);
+  
   // Pure presentational component - no loading logic
   // All data loading is handled in Home.tsx
   
   // Memoize active habits to prevent unnecessary calculations
+  // Only include habits that are active - this is important since our DB
+  // now keeps inactive habits for preserving configurations
   const activeHabits = useMemo(() => 
-    habits.filter(h => h.active), 
+    habits.filter(h => h.active === true), 
     [habits]
   );
 
@@ -47,16 +55,40 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
 
   // Derive scheduled habits from active habits
   const scheduledHabits = useMemo(() => {
+    // Add debug logging to better understand what's being processed
+    console.log(`Processing ${activeHabits.length} active habits for ${currentDay}`);
+    
     const habitItems = activeHabits.flatMap(habit => {
-      const daySchedule = habit.daily_schedules.find(s => s.day === currentDay);
+      const daySchedule = habit.daily_schedules?.find(s => s.day === currentDay);
       if (!daySchedule?.active) return [];
 
+      // Debug logging for each habit's schedule
+      console.log(`Habit ${habit.id} (${habit.habit?.title}) has ${daySchedule.schedules.length} schedules for ${currentDay}`);
+
       // One card per schedule
-      return daySchedule.schedules.map(schedule => ({
-        habit,
-        eventTime: schedule.event_time,
-        reminderTime: schedule.reminder_time
-      }));
+      return daySchedule.schedules.map(schedule => {
+        // Enhanced debug log for schedule data
+        console.log(`Schedule for ${habit.habit?.title}:`, {
+          eventTime: schedule.event_time,
+          reminderTime: schedule.reminder_time,
+          label: schedule.label,
+          reminderTimeType: typeof schedule.reminder_time,
+          reminderTimeJSON: JSON.stringify(schedule.reminder_time),
+          hasReminder: Boolean(schedule.reminder_time)
+        });
+        
+        // Debug log each specific schedule's reminder
+        if (schedule.reminder_time) {
+          console.log(`Found reminder for ${habit.habit?.title}: ${schedule.reminder_time}`);
+        }
+        
+        return {
+          habit,
+          eventTime: schedule.event_time,
+          reminderTime: schedule.reminder_time,
+          label: schedule.label
+        };
+      });
     }).sort((a, b) => {
       // Extract the base time for comparison (remove the -index suffix if present)
       const getBaseTime = (time: string) => time.split('-')[0];
@@ -147,8 +179,37 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
     }
   }, [completions, scheduledHabits, selectedDate]);
 
+  // One-time debug log to avoid continuous console spam
+  useEffect(() => {
+    // Only log once when habits or current day changes
+    console.log('Debug Info - Current day:', currentDay);
+    console.log('Debug Info - Active habits count:', habits.filter(h => h.active).length);
+  }, [habits.length, currentDay]);
+
   return (
     <div className="space-y-6 pt-8 my-2">
+      <DebugNotificationButton />
+      <DebugPushNotificationButton />
+      {/* Simple reminder debugging info */}
+      <div className="mb-2 px-4 py-1 text-xs text-gray-500 flex items-center gap-2">
+        <button 
+          onClick={() => setShowDebugData(!showDebugData)} 
+          className="text-xs text-blue-500 underline"
+        >
+          {showDebugData ? 'Hide' : 'Check'} Reminders
+        </button>
+        
+        {showDebugData && (
+          <div className="text-xs">
+            <span>Scheduled habits: {scheduledHabits.length} for {currentDay}</span>
+            {scheduledHabits.length > 0 && scheduledHabits.some(h => h.reminderTime) ? (
+              <span className="text-green-600 ml-2">✓ Reminders found</span>
+            ) : (
+              <span className="text-gray-500 ml-2">No reminders set for today</span>
+            )}
+          </div>
+        )}
+      </div>
       <div className="space-y-2">
         <p className="text-sm text-gray-600 px-1">
           When you have completed your habit, make sure to track it
@@ -160,7 +221,7 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
               <p className="text-gray-600">No habits scheduled for this day</p>
             </div>
           ) : (
-            scheduledHabits.map(({ habit, eventTime, reminderTime }, index) => {
+            scheduledHabits.map(({ habit, eventTime, reminderTime, label }, index) => {
               const dateStr = format(selectedDate, 'yyyy-MM-dd');
               const habitKey = `${habit.id}-${dateStr}-${eventTime}`;
               const isCompleted = completions[habitKey] || false;
@@ -169,6 +230,9 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
               const displayTitle = eventTime.includes('-')
                 ? `Event ${parseInt(eventTime.split('-')[1]) + 1}`
                 : undefined;
+
+              // Debug log for label
+              console.log(`Rendering habit item with label:`, label);
 
               return (
                 <PlanHabitItem
@@ -182,6 +246,7 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
                     handleReminderToggle(habit.id, eventTime, newReminderTime)
                   }
                   displayTitle={displayTitle}
+                  label={label}
                 />
               );
             })

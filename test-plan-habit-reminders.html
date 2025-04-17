@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plan Habit Reminders Debug</title>
+  <script type="module">
+    // Import the Supabase client
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js';
+    
+    // Retrieve environment variables from localStorage (saved during app init)
+    const getEnv = (key) => {
+      try {
+        return localStorage.getItem(`env_${key}`);
+      } catch (e) {
+        console.error('Failed to retrieve env var:', e);
+        return null;
+      }
+    };
+    
+    const supabaseUrl = getEnv('VITE_SUPABASE_URL');
+    const supabaseKey = getEnv('VITE_SUPABASE_ANON_KEY');
+    
+    // Function to display results in the UI
+    function displayResults(data) {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '<h3>Results:</h3>';
+      
+      if (typeof data === 'string') {
+        resultsDiv.innerHTML += `<p>${data}</p>`;
+        return;
+      }
+      
+      const userHabits = data;
+      resultsDiv.innerHTML += `<p>📊 Found ${userHabits.length} user habits in total</p>`;
+      
+      let habitsWithReminders = 0;
+      let reminderCount = 0;
+      
+      for (const habit of userHabits) {
+        let habitHasReminders = false;
+        
+        const habitDiv = document.createElement('div');
+        habitDiv.className = 'habit';
+        habitDiv.innerHTML = `
+          <h4>🔷 Habit: ${habit.habit?.title || 'Unknown'} (ID: ${habit.id})</h4>
+          <p>Active: ${habit.active ? 'Yes' : 'No'}</p>
+        `;
+        
+        if (!habit.daily_schedules || !Array.isArray(habit.daily_schedules)) {
+          habitDiv.innerHTML += `<p class="warning">⚠️ No daily schedules or invalid format</p>`;
+          resultsDiv.appendChild(habitDiv);
+          continue;
+        }
+        
+        const schedulesDiv = document.createElement('div');
+        schedulesDiv.className = 'schedules';
+        schedulesDiv.innerHTML = '<h5>Daily Schedules:</h5>';
+        
+        for (const daySchedule of habit.daily_schedules) {
+          // Skip inactive days
+          if (!daySchedule.active) {
+            schedulesDiv.innerHTML += `<p class="inactive">${daySchedule.day}: Inactive (skipped)</p>`;
+            continue;
+          }
+          
+          const dayDiv = document.createElement('div');
+          dayDiv.className = 'day';
+          dayDiv.innerHTML = `<p><strong>${daySchedule.day}: Active</strong></p>`;
+          
+          // Check if schedules exist and are in array format
+          if (!daySchedule.schedules || !Array.isArray(daySchedule.schedules)) {
+            dayDiv.innerHTML += `<p class="warning">⚠️ No schedules or invalid format</p>`;
+            schedulesDiv.appendChild(dayDiv);
+            continue;
+          }
+          
+          // Process each event schedule
+          const eventsDiv = document.createElement('div');
+          eventsDiv.className = 'events';
+          
+          for (const [index, schedule] of daySchedule.schedules.entries()) {
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'event';
+            
+            eventDiv.innerHTML = `
+              <p>Event ${index + 1}:</p>
+              <p class="indent">Time: ${schedule.event_time || 'Not set'}</p>
+            `;
+            
+            if (schedule.reminder_time) {
+              eventDiv.innerHTML += `<p class="indent success">Reminder: ${schedule.reminder_time} ✅</p>`;
+              habitHasReminders = true;
+              reminderCount++;
+            } else {
+              eventDiv.innerHTML += `<p class="indent warning">Reminder: Not set ❌</p>`;
+            }
+            
+            eventsDiv.appendChild(eventDiv);
+          }
+          
+          dayDiv.appendChild(eventsDiv);
+          schedulesDiv.appendChild(dayDiv);
+        }
+        
+        habitDiv.appendChild(schedulesDiv);
+        resultsDiv.appendChild(habitDiv);
+        
+        if (habitHasReminders) {
+          habitsWithReminders++;
+        }
+      }
+      
+      // Add summary
+      const summaryDiv = document.createElement('div');
+      summaryDiv.className = 'summary';
+      summaryDiv.innerHTML = `
+        <h3>📊 SUMMARY:</h3>
+        <p>Total user habits: ${userHabits.length}</p>
+        <p>Habits with reminders: ${habitsWithReminders}</p>
+        <p>Total reminders found: ${reminderCount}</p>
+      `;
+      
+      if (habitsWithReminders === 0) {
+        summaryDiv.innerHTML += `
+          <p class="error">❌ ISSUE FOUND: No habits have reminders set in the database!</p>
+          <p>This explains why reminders are not showing in the plan view.</p>
+        `;
+      } else {
+        summaryDiv.innerHTML += `
+          <p class="warning">⚠️ Some habits have reminders, but they may not be showing in the plan view.</p>
+          <p>Check the frontend components for rendering issues.</p>
+        `;
+      }
+      
+      resultsDiv.appendChild(summaryDiv);
+      
+      // Add diagnosis
+      const diagnosisDiv = document.createElement('div');
+      diagnosisDiv.className = 'diagnosis';
+      diagnosisDiv.innerHTML = `
+        <h3>🔍 DIAGNOSIS:</h3>
+        <div id="diagnosis-content">Analyzing issues...</div>
+      `;
+      resultsDiv.appendChild(diagnosisDiv);
+      
+      setTimeout(() => {
+        const diagnosisContent = document.getElementById('diagnosis-content');
+        
+        if (habitsWithReminders === 0) {
+          diagnosisContent.innerHTML = `
+            <p>The issue is that <strong>no habits have reminders set in the database</strong>.</p>
+            <p>To fix this issue:</p>
+            <ol>
+              <li>Set reminders for habits using the habit configuration screen</li>
+              <li>Check for any issues in the reminder saving logic</li>
+            </ol>
+          `;
+        } else {
+          // Check for common issues in the frontend rendering
+          diagnosisContent.innerHTML = `
+            <p>Some habits have reminders in the database, but they aren't displaying in Plan view.</p>
+            <p>Possible issues:</p>
+            <ol>
+              <li>The <code>reminderTime</code> value might not be correctly passed to <code>PlanHabitItem</code> component</li>
+              <li>The condition for displaying reminders in <code>PlanHabitItem</code> might be incorrect</li>
+              <li>There might be formatting errors in the reminder time that prevent it from being displayed</li>
+            </ol>
+            <p>Next steps:</p>
+            <ol>
+              <li>Check the console for any errors related to reminders</li>
+              <li>Verify <code>PlanTab.tsx</code> is correctly extracting the reminder data from the habit</li>
+              <li>Verify <code>PlanHabitItem.tsx</code> is correctly handling and displaying the reminder</li>
+            </ol>
+          `;
+        }
+      }, 1000);
+    }
+    
+    // Function to check habit reminders
+    async function checkHabitReminders() {
+      document.getElementById('results').innerHTML = '<p>Loading habits data...</p>';
+      
+      try {
+        if (!supabaseUrl || !supabaseKey) {
+          displayResults('Missing Supabase credentials. Please login to the app first to set up environment variables.');
+          return;
+        }
+        
+        document.getElementById('status').textContent = 'Connecting to Supabase...';
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        // Get auth session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          displayResults('No active Supabase session found. Please login to the app first.');
+          return;
+        }
+        
+        document.getElementById('status').textContent = 'Fetching user habits...';
+        
+        // Get all user habits
+        const { data: userHabits, error } = await supabase
+          .from('user_habits')
+          .select('*, habit:habits(*)');
+        
+        if (error) throw error;
+        
+        document.getElementById('status').textContent = 'Analysis complete!';
+        displayResults(userHabits);
+        
+      } catch (error) {
+        console.error('Error checking habit reminders:', error);
+        displayResults(`Error: ${error.message || 'Unknown error'}`);
+      }
+    }
+    
+    // Set up event handlers
+    document.getElementById('check-button').addEventListener('click', checkHabitReminders);
+    
+    // Check local environment
+    function checkEnvironment() {
+      const envDiv = document.getElementById('env-info');
+      
+      if (supabaseUrl && supabaseKey) {
+        envDiv.innerHTML = '<p class="success">✅ Environment variables found</p>';
+      } else {
+        envDiv.innerHTML = `
+          <p class="warning">⚠️ Environment variables missing</p>
+          <p>Login to the app first to initialize environment variables</p>
+        `;
+      }
+    }
+    
+    // Initialize
+    checkEnvironment();
+  </script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    header {
+      background-color: #f5f5f5;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      margin-top: 0;
+      color: #2c3e50;
+    }
+    .control-panel {
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .status {
+      margin-top: 10px;
+      font-style: italic;
+      color: #666;
+    }
+    #results {
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .habit {
+      border-left: 4px solid #3498db;
+      padding-left: 15px;
+      margin-bottom: 20px;
+    }
+    .schedules {
+      margin-left: 20px;
+    }
+    .events {
+      margin-left: 20px;
+    }
+    .event {
+      margin-bottom: 10px;
+    }
+    .indent {
+      margin-left: 20px;
+      margin-top: 5px;
+      margin-bottom: 5px;
+    }
+    .success {
+      color: #2ecc71;
+    }
+    .warning {
+      color: #e67e22;
+    }
+    .error {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+    .inactive {
+      color: #95a5a6;
+    }
+    .summary {
+      background-color: #f8f9fa;
+      border-left: 4px solid #9b59b6;
+      padding: 15px;
+      margin-top: 30px;
+    }
+    .diagnosis {
+      background-color: #f0f7ff;
+      border-left: 4px solid #3498db;
+      padding: 15px;
+      margin-top: 30px;
+    }
+    code {
+      background-color: #f1f1f1;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Plan Habit Reminders Debug</h1>
+    <p>This tool helps diagnose issues with habit reminders not showing in the Plan view.</p>
+  </header>
+  
+  <div class="control-panel">
+    <div id="env-info"></div>
+    <button id="check-button">Check Habit Reminders</button>
+    <div class="status">Status: <span id="status">Ready</span></div>
+  </div>
+  
+  <div id="results">
+    <p>Click the "Check Habit Reminders" button to analyze your habits data.</p>
+  </div>
+</body>
+</html>

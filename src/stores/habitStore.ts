@@ -335,14 +335,16 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   
   removeHabitFromUser: async (userId: string, habitId: string, userHabitId?: string) => {
     const { addLog } = useDebugStore.getState();
-    addLog(`Removing habit ${habitId} from user ${userId}...`, 'info', { component: 'habitStore.removeHabitFromUser' });
+    addLog(`Deactivating habit ${habitId} for user ${userId}...`, 'info', { component: 'habitStore.removeHabitFromUser' });
     
-    // 1. Optimistically update UI first
+    // 1. Optimistically update UI to mark the habit as inactive (not remove it)
     set(state => ({
-      userHabits: state.userHabits.filter(uh => uh.habit_id !== habitId)
+      userHabits: state.userHabits.map(uh => 
+        uh.habit_id === habitId ? { ...uh, active: false } : uh
+      )
     }));
 
-    // 2. Then perform the deletion
+    // 2. Then perform the update to set active=false
     const result = await habitService.removeHabitFromUser(userId, habitId, userHabitId);
 
     // 3. Only revert if failed
@@ -352,17 +354,17 @@ export const useHabitStore = create<HabitState>((set, get) => ({
       
       set(state => ({
         userHabits: revertResult.data || [],
-        toast: { message: result.error || 'Failed to remove habit', type: 'error' }
+        toast: { message: result.error || 'Failed to deactivate habit', type: 'error' }
       }));
       
-      addLog(`Failed to remove habit from user: ${result.error}`, 'error', { component: 'habitStore.removeHabitFromUser' });
+      addLog(`Failed to deactivate habit for user: ${result.error}`, 'error', { component: 'habitStore.removeHabitFromUser' });
       return false;
     } else {
       // Update timestamp on success
       set({ userHabitsLoadedAt: Date.now() });
     }
 
-    addLog(`Removed habit ${habitId} from user ${userId}`, 'success', { component: 'habitStore.removeHabitFromUser' });
+    addLog(`Deactivated habit ${habitId} for user ${userId}`, 'success', { component: 'habitStore.removeHabitFromUser' });
     return true;
   },
   

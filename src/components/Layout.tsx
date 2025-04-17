@@ -33,6 +33,25 @@ export function Layout() {
       setActiveTab('habits');
     }
   }, [location.pathname, setActiveTab]);
+  
+  // Listen for custom event to change category
+  useEffect(() => {
+    const handleCategoryChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ category: string }>;
+      const category = customEvent.detail?.category;
+      
+      if (category && ['eat', 'move', 'mind', 'sleep'].includes(category)) {
+        console.log('Layout received category change event:', category);
+        setActiveCategory(category as HabitCategory);
+      }
+    };
+    
+    window.addEventListener('change-habit-category', handleCategoryChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('change-habit-category', handleCategoryChange as EventListener);
+    };
+  }, []);
 
 
   useEffect(() => {

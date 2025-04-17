@@ -73,9 +73,9 @@ function checkEnvironmentVariables(): { missing: string[], isProduction: boolean
  */
 async function checkChatApi(): Promise<boolean> {
   try {
-    // Just check if the endpoint is reachable with a HEAD request
+    // Changed to GET request because HEAD is not allowed by the server
     const response = await fetch('https://alpha.api.intellaigent.starti.no/health', {
-      method: 'HEAD',
+      method: 'GET',
       mode: 'no-cors', // This will prevent CORS errors but won't give us status
       cache: 'no-cache'
     });

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { ROUTES } from '../config/routes';
 import { useAuthStore } from '../stores/authStore';
 import { useHabitStore } from '../stores/habitStore';
 import { useCompletionStore } from '../stores/completionStore';
@@ -46,6 +47,7 @@ export function Home() {
     loadUserHabits,
     addHabitToUser,
     removeHabitFromUser,
+    toggleHabitActive,
     selectedTargets,
     setSelectedTarget
   } = useHabitStore();
@@ -132,25 +134,92 @@ export function Home() {
     await loadHabits();
   };
 
+  const handleConfigureHabit = (habitId: string, userHabitId?: string) => {
+    // Log the attempt to navigate
+    console.log(`Attempting to navigate to habit configuration`, { habitId, userHabitId });
+    
+    try {
+      // If we have a userHabitId, navigate to that (for user's habits)
+      if (userHabitId) {
+        // Show a toast to provide feedback
+        setToast({
+          message: 'Opening habit configuration...',
+          type: 'success'
+        });
+        
+        // Use direct path navigation for maximum reliability
+        const path = `/habits/${userHabitId}`;
+        console.log(`Navigating to: ${path}`);
+        
+        // Use a slight delay to ensure the toast appears before navigation
+        setTimeout(() => {
+          navigate(path);
+        }, 100);
+      } else {
+        // For habits not yet added by the user, show a toast message
+        setToast({
+          message: 'Add this habit first to configure it',
+          type: 'success'
+        });
+        
+        // Try to add the habit automatically
+        if (user) {
+          addHabitToUser(user.id, habitId)
+            .then(success => {
+              if (success) {
+                // Try to find the newly added habit
+                const userHabit = userHabits.find(uh => uh.habit_id === habitId);
+                if (userHabit) {
+                  // Navigate to the configuration page
+                  navigate(`/habits/${userHabit.id}`);
+                }
+              }
+            });
+        }
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // Fallback if navigation fails
+      setToast({
+        message: 'Could not open habit configuration. Please try again.',
+        type: 'error'
+      });
+    }
+  };
+
   const handleAddOrRemoveUserHabit = async (habit: Habit, isSelected: boolean, userHabitId?: string) => {
     if (!user) return;
     
     if (isSelected) {
-      // Remove habit from user using userHabitId if provided
+      // Set habit to inactive (previously this was removing)
+      console.log(`Setting habit ${habit.id} to inactive`);
       await removeHabitFromUser(user.id, habit.id, userHabitId);
     } else {
-      // Add habit to user
-      const success = await addHabitToUser(user.id, habit.id);
+      // Check if the habit already exists for this user but is inactive
+      const existingHabit = userHabits.find(uh => uh.habit_id === habit.id);
       
-      if (success) {
-        // Find the newly added user habit
-        const userHabit = userHabits.find(uh => uh.habit_id === habit.id);
+      if (existingHabit) {
+        // If it exists but is inactive, reactivate it
+        console.log(`Reactivating existing habit ${habit.id}`);
+        await toggleHabitActive(existingHabit.id, true);
         
-        // After adding, check if configuration is needed
-        const needsConfig = !habit.target || habit.target.length === 0 || !habit.frequency;
-        if (needsConfig && userHabit) {
-          // Navigate to habit configuration using the user habit ID
-          navigate(`/habits/${userHabit.id}`);
+        // Reload user habits to get the updated data
+        await loadUserHabits(user.id);
+      } else {
+        // If it doesn't exist, add it as a new habit
+        console.log(`Adding new habit ${habit.id}`);
+        const success = await addHabitToUser(user.id, habit.id);
+        
+        if (success) {
+          // Find the newly added user habit
+          const userHabit = userHabits.find(uh => uh.habit_id === habit.id);
+          
+          // After adding, check if configuration is needed
+          const needsConfig = !habit.target || habit.target.length === 0 || !habit.frequency;
+          if (needsConfig && userHabit) {
+            // Navigate to habit configuration using the user habit ID
+            navigate(`/habits/${userHabit.id}`);
+          }
         }
       }
     }
@@ -279,6 +348,7 @@ export function Home() {
               onAddHabit={handleAddHabit}
               onSelectTarget={handleSelectTarget}
               selectedTargets={selectedTargets}
+              onConfigureHabit={handleConfigureHabit}
             />
           </>
         )

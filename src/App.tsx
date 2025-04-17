@@ -15,6 +15,7 @@ import { HealthCheck } from './components/shared/HealthCheck';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { DebugPanel } from './components/DebugPanel';
 import { DebugActivator } from './components/DebugActivator';
+import { DebugButton } from './components/DebugButton';
 import Profile from './pages/Profile/Profile';
 import { useReminderNotifications } from './hooks/useReminderNotifications';
 
@@ -153,6 +154,7 @@ function App() {
       <ConnectionStatus />
       <DebugActivator />
       <DebugPanel />
+      <DebugButton />
       
       {/* Version info in production */}
       {import.meta.env.MODE === 'production' && (

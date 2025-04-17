@@ -12,6 +12,7 @@ interface HabitListProps {
   onAddHabit: () => void;
   onSelectTarget: (habitId: string, target: number) => void;
   selectedTargets: Record<string, number>;
+  onConfigureHabit?: (habitId: string, userHabitId?: string) => void; // New prop
 }
 
 export function HabitList({ 
@@ -21,7 +22,8 @@ export function HabitList({
   onAddOrRemoveHabit,
   onAddHabit,
   onSelectTarget,
-  selectedTargets
+  selectedTargets,
+  onConfigureHabit // New prop
 }: HabitListProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -33,9 +35,9 @@ export function HabitList({
     );
   }, [habits, category, searchTerm]);
 
-  // Determine if a habit is selected
+  // Determine if a habit is selected (active=true in user_habits)
   const isHabitSelected = (habit: Habit) => {
-    return userHabits.some(uh => uh.habit_id === habit.id);
+    return userHabits.some(uh => uh.habit_id === habit.id && uh.active === true);
   };
 
   return (
@@ -75,6 +77,7 @@ export function HabitList({
               onSelect={onAddOrRemoveHabit}
               userHabits={userHabits}
               selectedTargets={selectedTargets}
+              onConfigure={onConfigureHabit} // Pass the new prop
             />
           ))
         )}

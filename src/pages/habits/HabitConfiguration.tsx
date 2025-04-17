@@ -79,18 +79,19 @@ export function HabitConfiguration() {
 
 
   const loadHabit = useCallback(async () => {
-    try {
-      setLoading(true);
-      addLog(`Loading habit configuration for ID: ${habitId}...`, 'info');
+    setLoading(true);
+    console.log(`Loading habit configuration for ID: ${habitId}...`);
+    addLog(`Loading habit configuration for ID: ${habitId}...`, 'info');
 
+    try {
       // Validate habitId
       if (!habitId) {
+        console.error('No habit ID provided');
         addLog('No habit ID provided', 'error');
         setToast({
           message: 'Invalid habit ID. Please try again.',
           type: 'error'
         });
-        setLoading(false);
         return;
       }
 
@@ -102,6 +103,7 @@ export function HabitConfiguration() {
         .single();
 
       if (userHabitError) {
+        console.error(`User habit query error: ${userHabitError.message}`);
         addLog(`User habit query error: ${userHabitError.message}`, 'error');
         setToast({
           message: 'Could not verify habit details.',
@@ -111,6 +113,7 @@ export function HabitConfiguration() {
       }
 
       if (!userHabitData) {
+        console.error(`No user habit found with ID: ${habitId}`);
         addLog(`No user habit found with ID: ${habitId}`, 'warn');
         setToast({
           message: 'Habit not found. It may have been deleted.',
@@ -130,6 +133,7 @@ export function HabitConfiguration() {
         .single();
 
       if (error) {
+        console.error(`Error loading habit details: ${error.message}`);
         addLog(`Error loading habit details: ${error.message}`, 'error');
         setToast({
           message: error.message || 'Could not load habit details.',
@@ -139,6 +143,7 @@ export function HabitConfiguration() {
       }
 
       if (!data) {
+        console.error('No habit details found');
         addLog('No habit details found after verification', 'warn');
         setToast({
           message: 'Could not retrieve habit details.',
@@ -147,6 +152,7 @@ export function HabitConfiguration() {
         return;
       }
 
+      console.log('Habit data loaded successfully:', data);
       addLog(`Loaded habit: ${data.habit?.title || 'Untitled'}`, 'success');
       
       // Safely set states with fallback values
@@ -182,7 +188,6 @@ export function HabitConfiguration() {
         setDailySchedules(schedules);
         addLog('Loaded existing schedules', 'info');
       }
-
     } catch (err) {
       console.error('Unexpected error in loadHabit:', err);
       addLog(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
@@ -191,6 +196,7 @@ export function HabitConfiguration() {
         type: 'error'
       });
     } finally {
+      // Always ensure loading state is set to false
       setLoading(false);
     }
   }, [habitId, addLog, selectedTargets, setHabit, setIsActive, setHabitTitle, setHabitDescription, setHabitCategory, setHabitIcon, setDailySchedules]);
@@ -408,12 +414,34 @@ export function HabitConfiguration() {
 
     setShowConfirmDialog(false);
     setPendingNavigation(false);
-    if (nextNavigationPage === -1){
-        navigate(-1);
-        return;
+    
+    // Handle different types of navigation after saving
+    if (nextNavigationPage === -1) {
+      navigate(-1);
+      return;
+    } else if (typeof nextNavigationPage === 'string' && ['goal', 'plan', 'habits'].includes(nextNavigationPage)) {
+      // This is a tab navigation
+      navigate('/');
+      setActiveTab(nextNavigationPage);
+    } else if (typeof nextNavigationPage === 'string' && ['eat', 'move', 'mind', 'sleep'].includes(nextNavigationPage)) {
+      // This is a category navigation
+      navigate('/');
+      // Wait for navigation to complete before changing category
+      setTimeout(() => {
+        console.log('Changing category to:', nextNavigationPage);
+        const setActiveCategory = (category: string) => {
+          // Dispatch a custom event to change the category
+          // This is a workaround since we don't have direct access to the setActiveCategory function
+          window.dispatchEvent(new CustomEvent('change-habit-category', { 
+            detail: { category: nextNavigationPage } 
+          }));
+        };
+        setActiveCategory(nextNavigationPage);
+      }, 100);
+    } else {
+      // Default fallback
+      navigate('/');
     }
-    navigate('/')
-    setActiveTab(nextNavigationPage as string);
     } catch (err) {
       console.error('Error saving habit:', err);
       addLog(`Failed to save changes: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
@@ -534,6 +562,11 @@ export function HabitConfiguration() {
     field: keyof DaySchedule['schedules'][0],
     value: string | null
   ) => {
+    // Debug log for reminder updates
+    if (field === 'reminder_time') {
+      console.log(`Updating reminder: dayId=${dayId}, index=${index}, value=`, value);
+    }
+    
     if (field === 'reminder_time' && value) {
       // Get the event time for this schedule
       const schedule = dailySchedules.find(s => s.day === dayId)?.schedules[index];
@@ -566,20 +599,27 @@ export function HabitConfiguration() {
         }
     }
 
-    setDailySchedules(prev => 
-      prev.map(schedule => 
+    const updatedSchedules = (prev: DaySchedule[]) => 
+      prev.map((schedule: DaySchedule) => 
         schedule.day === dayId
           ? {
               ...schedule,
-              schedules: schedule.schedules.map((timeSlot, i) => 
+              schedules: schedule.schedules.map((timeSlot, i: number) => 
                 i === index
                   ? { ...timeSlot, [field]: value }
                   : timeSlot
               )
             }
           : schedule
-      )
-    );
+      );
+    
+    setDailySchedules(updatedSchedules);
+    
+    // Debug log the updated schedules for the affected day
+    if (field === 'reminder_time') {
+      const updatedDay = updatedSchedules(dailySchedules).find((s: DaySchedule) => s.day === dayId);
+      console.log(`Updated schedules for ${dayId}:`, updatedDay?.schedules);
+    }
   };
 
   const copyToAllDays = () => {

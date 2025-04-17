@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habit Completion Sparks Animation Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f5f5f5;
+      padding: 20px;
+    }
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    
+    /* Spark animations */
+    @keyframes spark-1 {
+      0% { transform: translateY(0) scale(0); opacity: 0; }
+      50% { transform: translateY(-10px) scale(1); opacity: 1; }
+      100% { transform: translateY(-15px) scale(0); opacity: 0; }
+    }
+    @keyframes spark-2 {
+      0% { transform: translateY(0) scale(0); opacity: 0; }
+      40% { transform: translateY(-8px) scale(1); opacity: 1; }
+      100% { transform: translateY(-12px) scale(0); opacity: 0; }
+    }
+    @keyframes spark-3 {
+      0% { transform: translateX(0) scale(0); opacity: 0; }
+      50% { transform: translateX(10px) scale(1); opacity: 1; }
+      100% { transform: translateX(15px) scale(0); opacity: 0; }
+    }
+    @keyframes spark-4 {
+      0% { transform: translateX(0) scale(0); opacity: 0; }
+      45% { transform: translateX(8px) scale(1); opacity: 1; }
+      100% { transform: translateX(12px) scale(0); opacity: 0; }
+    }
+    @keyframes spark-5 {
+      0% { transform: translateY(0) scale(0); opacity: 0; }
+      50% { transform: translateY(10px) scale(1); opacity: 1; }
+      100% { transform: translateY(15px) scale(0); opacity: 0; }
+    }
+    .animate-spark-1 { animation: spark-1 0.6s ease-out forwards; }
+    .animate-spark-2 { animation: spark-2 0.5s ease-out forwards 0.1s; }
+    .animate-spark-3 { animation: spark-3 0.6s ease-out forwards 0.05s; }
+    .animate-spark-4 { animation: spark-4 0.5s ease-out forwards 0.15s; }
+    .animate-spark-5 { animation: spark-5 0.6s ease-out forwards 0.1s; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="text-2xl font-bold mb-6">Habit Completion Sparks Animation Test</h1>
+    
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+      <h2 class="text-lg font-semibold mb-4">Sparks Animation Demo</h2>
+      
+      <div class="flex justify-center mb-8">
+        <button id="demo-button" class="w-12 h-12 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center relative focus:outline-none">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="check-icon">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          
+          <!-- Sparks container (initially hidden) -->
+          <div id="sparks" class="absolute inset-0 rounded-full overflow-hidden hidden">
+            <!-- Top sparks -->
+            <div class="absolute top-0 left-1/4 w-[2px] h-[5px] bg-yellow-300 animate-spark-1"></div>
+            <div class="absolute top-0 right-1/4 w-[2px] h-[4px] bg-yellow-300 animate-spark-2"></div>
+            <!-- Right sparks -->
+            <div class="absolute right-0 top-1/4 w-[5px] h-[2px] bg-yellow-300 animate-spark-3"></div>
+            <div class="absolute right-0 bottom-1/4 w-[4px] h-[2px] bg-yellow-300 animate-spark-4"></div>
+            <!-- Bottom sparks -->
+            <div class="absolute bottom-0 right-1/4 w-[2px] h-[6px] bg-yellow-300 animate-spark-5"></div>
+            <div class="absolute bottom-0 left-1/4 w-[2px] h-[5px] bg-yellow-300 animate-spark-1"></div>
+            <!-- Left sparks -->
+            <div class="absolute left-0 bottom-1/4 w-[5px] h-[2px] bg-yellow-300 animate-spark-3"></div>
+            <div class="absolute left-0 top-1/4 w-[4px] h-[2px] bg-yellow-300 animate-spark-4"></div>
+            <!-- Corner sparks -->
+            <div class="absolute top-[2px] left-[2px] w-[2px] h-[2px] bg-yellow-300 animate-spark-2"></div>
+            <div class="absolute top-[2px] right-[2px] w-[2px] h-[2px] bg-yellow-300 animate-spark-3"></div>
+            <div class="absolute bottom-[2px] right-[2px] w-[2px] h-[2px] bg-yellow-300 animate-spark-4"></div>
+            <div class="absolute bottom-[2px] left-[2px] w-[2px] h-[2px] bg-yellow-300 animate-spark-5"></div>
+          </div>
+        </button>
+      </div>
+      
+      <div class="flex justify-center mb-4">
+        <button id="toggle-button" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+          Click to Trigger Animation
+        </button>
+      </div>
+      
+      <div class="text-center text-sm text-gray-600">
+        Click the button above to see the sparks animation and confetti effect
+      </div>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow p-6">
+      <div class="mb-4">
+        <h2 class="text-lg font-semibold">Implementation Details</h2>
+        <p class="text-gray-600 mt-2">
+          This demonstrates the sparks animation and confetti effect that appears when a habit is marked as completed.
+          The animations are implemented using:
+        </p>
+        <ul class="list-disc pl-5 mt-2 space-y-1 text-gray-600">
+          <li>CSS animations for the spark elements around the button border</li>
+          <li>canvas-confetti library for the particle effect</li>
+          <li>Tailwind CSS for styling</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Get elements
+    const demoButton = document.getElementById('demo-button');
+    const toggleButton = document.getElementById('toggle-button');
+    const sparks = document.getElementById('sparks');
+    
+    // Track state
+    let isCompleted = false;
+    
+    // Handle toggle button click
+    toggleButton.addEventListener('click', function() {
+      // Toggle completed state
+      isCompleted = !isCompleted;
+      
+      // Update button appearance
+      if (isCompleted) {
+        demoButton.classList.remove('bg-gray-100', 'text-gray-600');
+        demoButton.classList.add('bg-green-500', 'text-white');
+        
+        // Show sparks
+        sparks.classList.remove('hidden');
+        
+        // Generate confetti
+        const buttonRect = demoButton.getBoundingClientRect();
+        const x = (buttonRect.left + buttonRect.width / 2) / window.innerWidth;
+        const y = (buttonRect.top + buttonRect.height / 2) / window.innerHeight;
+        
+        confetti({
+          particleCount: 15,
+          spread: 40,
+          origin: { x, y },
+          colors: ['#4CAF50', '#8BC34A', '#CDDC39'],
+          shapes: ['circle'],
+          scalar: 0.75,
+          gravity: 0.8,
+          ticks: 100,
+          zIndex: 1000,
+          disableForReducedMotion: true
+        });
+        
+        // Hide sparks after animation completes
+        setTimeout(() => {
+          sparks.classList.add('hidden');
+        }, 700);
+      } else {
+        demoButton.classList.remove('bg-green-500', 'text-white');
+        demoButton.classList.add('bg-gray-100', 'text-gray-600');
+      }
+    });
+  </script>
+</body>
+</html>

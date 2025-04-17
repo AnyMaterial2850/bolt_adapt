@@ -1,6 +1,6 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import webpush from 'npm:web-push@3.6.1'
+import { createClient } from '@supabase/supabase-js'
+import webpush from 'web-push'
+import { logPushSubscription, logPushError } from './logging'
 
 interface WebPushPayload {
   subscription: PushSubscription
@@ -26,9 +26,15 @@ interface PushSubscription {
   }
 }
 
-serve(async (req) => {
+interface HabitDetails {
+  title: string
+  category: string
+  target?: number[]
+  unit?: string
+}
+
+export default async function handler(req: Request): Promise<Response> {
   try {
-    // CORS headers
     if (req.method === 'OPTIONS') {
       return new Response('ok', {
         headers: {
@@ -39,32 +45,28 @@ serve(async (req) => {
       })
     }
 
-    // Get environment variables
-    const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY')
-    const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY')
-    const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@example.com'
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const VAPID_PUBLIC_KEY = process.env.VITE_VAPID_PUBLIC_KEY
+    const VAPID_PRIVATE_KEY = process.env.VITE_VAPID_PRIVATE_KEY
+    const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@example.com'
+    const SUPABASE_URL = process.env.VITE_SUPABASE_URL || ''
+    const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
-    // Validate VAPID keys
     if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+      logPushError('VAPID keys not configured or missing')
       return new Response(
         JSON.stringify({ error: 'VAPID keys not configured' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    // Set VAPID details
     webpush.setVapidDetails(
       VAPID_SUBJECT,
       VAPID_PUBLIC_KEY,
       VAPID_PRIVATE_KEY
     )
 
-    // Parse request body
     const { userId, habitId, title, body, data } = await req.json()
 
-    // Validate required fields
     if (!userId) {
       return new Response(
         JSON.stringify({ error: 'userId is required' }),
@@ -72,10 +74,8 @@ serve(async (req) => {
       )
     }
 
-    // Create Supabase client with service role key
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-    // Get user's push subscriptions
     const { data: subscriptions, error: subscriptionError } = await supabase
       .from('subscriptions')
       .select('*')
@@ -95,8 +95,7 @@ serve(async (req) => {
       )
     }
 
-    // Get habit details if habitId is provided
-    let habitDetails = null
+    let habitDetails: HabitDetails | null = null
     if (habitId) {
       const { data: habit, error: habitError } = await supabase
         .from('habits')
@@ -109,11 +108,9 @@ serve(async (req) => {
       }
     }
 
-    // Prepare notification payload
     const notificationTitle = title || (habitDetails ? `Time for: ${habitDetails.title}` : 'Reminder')
     let notificationBody = body || ''
-    
-    // Add target and unit to body if available
+
     if (habitDetails && habitDetails.target && habitDetails.target.length > 0 && habitDetails.unit) {
       if (notificationBody) {
         notificationBody += ` (Target: ${habitDetails.target.join(', ')} ${habitDetails.unit})`
@@ -122,7 +119,8 @@ serve(async (req) => {
       }
     }
 
-    // Send push notification to each subscription
+    subscriptions.forEach(sub => logPushSubscription(sub))
+
     const results = await Promise.allSettled(
       subscriptions.map(async (sub) => {
         try {
@@ -159,28 +157,26 @@ serve(async (req) => {
           )
 
           return { success: true, endpoint: sub.endpoint }
-        } catch (error) {
-          // If subscription is expired or invalid, remove it
+        } catch (error: any) {
+          logPushError(error)
           if (error.statusCode === 404 || error.statusCode === 410) {
             await supabase
               .from('subscriptions')
               .delete()
               .eq('endpoint', sub.endpoint)
           }
-          
-          return { 
-            success: false, 
-            endpoint: sub.endpoint, 
+          return {
+            success: false,
+            endpoint: sub.endpoint,
             error: error.message,
-            statusCode: error.statusCode 
+            statusCode: error.statusCode
           }
         }
       })
     )
 
-    // Count successful and failed notifications
-    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
-    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length
+    const successful = results.filter(r => r.status === 'fulfilled' && (r as PromiseFulfilledResult<any>).value.success).length
+    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !(r as PromiseFulfilledResult<any>).value.success)).length
 
     return new Response(
       JSON.stringify({
@@ -189,10 +185,11 @@ serve(async (req) => {
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
-  } catch (error) {
+  } catch (error: any) {
+    logPushError(error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
-})
+}

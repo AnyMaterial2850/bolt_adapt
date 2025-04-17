@@ -8,6 +8,94 @@ module.exports = {
   ],
   theme: {
     extend: {
+      keyframes: {
+        'spark-1': {
+          '0%': { transform: 'translateY(0) scale(0)', opacity: 0 },
+          '20%': { transform: 'translate(3px, -3px) rotate(30deg) scale(1)', opacity: 0.7 },
+          '40%': { transform: 'translate(5px, -5px) rotate(60deg) scale(1.2)', opacity: 1 },
+          '60%': { transform: 'translate(2px, -8px) rotate(90deg) scale(1)', opacity: 0.9 },
+          '100%': { transform: 'translateY(-20px) rotate(180deg) scale(0)', opacity: 0 }
+        },
+        'spark-2': {
+          '0%': { transform: 'translateY(0) scale(0)', opacity: 0 },
+          '20%': { transform: 'translate(-3px, -3px) rotate(-30deg) scale(1)', opacity: 0.7 },
+          '40%': { transform: 'translate(-5px, -5px) rotate(-60deg) scale(1.2)', opacity: 1 },
+          '60%': { transform: 'translate(-2px, -8px) rotate(-90deg) scale(1)', opacity: 0.9 },
+          '100%': { transform: 'translateY(-20px) rotate(-180deg) scale(0)', opacity: 0 }
+        },
+        'spark-3': {
+          '0%': { transform: 'translateX(0) scale(0)', opacity: 0 },
+          '20%': { transform: 'translate(3px, 3px) rotate(30deg) scale(1)', opacity: 0.7 },
+          '40%': { transform: 'translate(8px, 5px) rotate(60deg) scale(1.2)', opacity: 1 },
+          '60%': { transform: 'translate(13px, 2px) rotate(90deg) scale(1)', opacity: 0.9 },
+          '100%': { transform: 'translateX(25px) rotate(180deg) scale(0)', opacity: 0 }
+        },
+        'spark-4': {
+          '0%': { transform: 'translateX(0) scale(0)', opacity: 0 },
+          '20%': { transform: 'translate(3px, -3px) rotate(-30deg) scale(1)', opacity: 0.7 },
+          '40%': { transform: 'translate(8px, -5px) rotate(-60deg) scale(1.2)', opacity: 1 },
+          '60%': { transform: 'translate(13px, -2px) rotate(-90deg) scale(1)', opacity: 0.9 },
+          '100%': { transform: 'translateX(25px) rotate(-180deg) scale(0)', opacity: 0 }
+        },
+        'spark-5': {
+          '0%': { transform: 'translateY(0) scale(0)', opacity: 0 },
+          '20%': { transform: 'translate(3px, 3px) rotate(-30deg) scale(1)', opacity: 0.7 },
+          '40%': { transform: 'translate(5px, 5px) rotate(-60deg) scale(1.2)', opacity: 1 },
+          '60%': { transform: 'translate(2px, 8px) rotate(-90deg) scale(1)', opacity: 0.9 },
+          '100%': { transform: 'translateY(20px) rotate(-180deg) scale(0)', opacity: 0 }
+        },
+        'spark-6': {
+          '0%': { transform: 'translateY(0) scale(0)', opacity: 0 },
+          '20%': { transform: 'translate(-3px, 3px) rotate(30deg) scale(1)', opacity: 0.7 },
+          '40%': { transform: 'translate(-5px, 5px) rotate(60deg) scale(1.2)', opacity: 1 },
+          '60%': { transform: 'translate(-2px, 8px) rotate(90deg) scale(1)', opacity: 0.9 },
+          '100%': { transform: 'translateY(20px) rotate(180deg) scale(0)', opacity: 0 }
+        },
+        'spark-7': {
+          '0%': { transform: 'translateX(0) scale(0)', opacity: 0 },
+          '20%': { transform: 'translate(-3px, 3px) rotate(-30deg) scale(1)', opacity: 0.7 },
+          '40%': { transform: 'translate(-8px, 5px) rotate(-60deg) scale(1.2)', opacity: 1 },
+          '60%': { transform: 'translate(-13px, 2px) rotate(-90deg) scale(1)', opacity: 0.9 },
+          '100%': { transform: 'translateX(-25px) rotate(-180deg) scale(0)', opacity: 0 }
+        },
+        'spark-8': {
+          '0%': { transform: 'translateX(0) scale(0)', opacity: 0 },
+          '20%': { transform: 'translate(-3px, -3px) rotate(30deg) scale(1)', opacity: 0.7 },
+          '40%': { transform: 'translate(-8px, -5px) rotate(60deg) scale(1.2)', opacity: 1 },
+          '60%': { transform: 'translate(-13px, -2px) rotate(90deg) scale(1)', opacity: 0.9 },
+          '100%': { transform: 'translateX(-25px) rotate(180deg) scale(0)', opacity: 0 }
+        },
+        'spark-9': {
+          '0%': { transform: 'translate(0, 0) scale(0) rotate(0deg)', opacity: 0 },
+          '30%': { transform: 'translate(-3px, -3px) scale(1) rotate(45deg)', opacity: 0.8 },
+          '60%': { transform: 'translate(-7px, -7px) scale(1.1) rotate(90deg)', opacity: 1 },
+          '100%': { transform: 'translate(-15px, -15px) scale(0) rotate(180deg)', opacity: 0 }
+        },
+        'spark-10': {
+          '0%': { transform: 'translate(0, 0) scale(0) rotate(0deg)', opacity: 0 },
+          '30%': { transform: 'translate(3px, -3px) scale(1) rotate(-45deg)', opacity: 0.8 },
+          '60%': { transform: 'translate(7px, -7px) scale(1.1) rotate(-90deg)', opacity: 1 },
+          '100%': { transform: 'translate(15px, -15px) scale(0) rotate(-180deg)', opacity: 0 }
+        },
+        'spark-11': {
+          '0%': { transform: 'translate(0, 0) scale(0) rotate(0deg)', opacity: 0 },
+          '30%': { transform: 'translate(3px, 3px) scale(1) rotate(45deg)', opacity: 0.8 },
+          '60%': { transform: 'translate(7px, 7px) scale(1.1) rotate(90deg)', opacity: 1 },
+          '100%': { transform: 'translate(15px, 15px) scale(0) rotate(180deg)', opacity: 0 }
+        },
+        'spark-12': {
+          '0%': { transform: 'translate(0, 0) scale(0) rotate(0deg)', opacity: 0 },
+          '30%': { transform: 'translate(-3px, 3px) scale(1) rotate(-45deg)', opacity: 0.8 },
+          '60%': { transform: 'translate(-7px, 7px) scale(1.1) rotate(-90deg)', opacity: 1 },
+          '100%': { transform: 'translate(-15px, 15px) scale(0) rotate(-180deg)', opacity: 0 }
+        },
+        'celebrate': {
+          '0%': { transform: 'translateY(0) scale(1)', opacity: 0 },
+          '10%': { transform: 'translateY(-20px) scale(1.1)', opacity: 1 },
+          '90%': { transform: 'translateY(-20px) scale(1.1)', opacity: 1 },
+          '100%': { transform: 'translateY(-25px) scale(1.1)', opacity: 0 }
+        }
+      },
       colors: {
         primary: colors.blue,
         success: colors.green,
@@ -65,13 +153,19 @@ module.exports = {
         }
       },
       animation: {
-        'celebrate': 'bounce 1s ease-in-out 2',
-      },
-      keyframes: {
-        bounce: {
-          '0%, 100%': { transform: 'scale(1)' },
-          '50%': { transform: 'scale(1.1)' },
-        }
+        'spark-1': 'spark-1 1.2s ease-out forwards',
+        'spark-2': 'spark-2 1.2s ease-out forwards 0.1s',
+        'spark-3': 'spark-3 1.2s ease-out forwards 0.05s',
+        'spark-4': 'spark-4 1.2s ease-out forwards 0.15s',
+        'spark-5': 'spark-5 1.2s ease-out forwards 0.1s',
+        'spark-6': 'spark-6 1.2s ease-out forwards 0.05s',
+        'spark-7': 'spark-7 1.2s ease-out forwards 0.15s',
+        'spark-8': 'spark-8 1.2s ease-out forwards 0.1s',
+        'spark-9': 'spark-9 1.2s ease-out forwards',
+        'spark-10': 'spark-10 1.2s ease-out forwards 0.05s',
+        'spark-11': 'spark-11 1.2s ease-out forwards 0.1s',
+        'spark-12': 'spark-12 1.2s ease-out forwards 0.15s',
+        'celebrate': 'celebrate 1.5s ease-in-out forwards'
       }
     },
   },

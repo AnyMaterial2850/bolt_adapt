@@ -19,7 +19,9 @@ export default defineConfig(({ mode }) => {
           'favicon.ico', 
           'apple-touch-icon.png', 
           'mask-icon.svg',
-          'robots.txt'
+          'robots.txt',
+          'pwa-192x192.png',
+          'pwa-512x512.png'
         ],
         srcDir: 'public',
         filename: 'service-worker.js',
@@ -99,6 +101,15 @@ export default defineConfig(({ mode }) => {
       host: true, // Listen on all addresses
       port: 5173,
       strictPort: true, // Don't try other ports if 5173 is taken
+      https: false as any,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api/, '/api'),
+        },
+      },
     },
     build: {
       target: 'esnext',

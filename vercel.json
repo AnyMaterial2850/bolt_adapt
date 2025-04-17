@@ -9,6 +9,10 @@
         "buildCommand": "npm run build:vercel",
         "outputDirectory": "dist"
       }
+    },
+    {
+      "src": "supabase/functions/createNotification/index.ts",
+      "use": "@vercel/node"
     }
   ],
   "rewrites": [

@@ -291,6 +291,42 @@ export const habitService = {
    */
   addHabitToUser: async (userId: string, habitId: string): Promise<ServiceResult<UserHabit>> => {
     try {
+      // First check if this habit already exists for the user but is inactive
+      const { data: existingHabit, error: findError } = await supabase
+        .from('user_habits')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('habit_id', habitId)
+        .single();
+        
+      if (findError && findError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        console.error('Error checking for existing habit:', findError);
+        throw findError;
+      }
+      
+      // If the habit already exists, reactivate it
+      if (existingHabit) {
+        console.log('Reactivating existing habit', { habitId, userId });
+        
+        const { data: updatedHabit, error: updateError } = await supabase
+          .from('user_habits')
+          .update({ 
+            active: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingHabit.id)
+          .select('*, habit:habits(*)')
+          .single();
+          
+        if (updateError) throw updateError;
+        if (!updatedHabit) throw new Error('Failed to reactivate habit: No data returned');
+        
+        return { success: true, data: updatedHabit };
+      }
+      
+      // If habit doesn't exist yet, create it with default settings
+      console.log('Creating new habit', { habitId, userId });
+      
       // Create default daily schedules
       const defaultSchedules = [
         { day: 'Mon', active: true, schedules: [{ event_time: '09:00', reminder_time: null, label: null }] },
@@ -303,7 +339,7 @@ export const habitService = {
       ];
       
       // Add habit to user
-      const { data, error } = await supabase
+      const { data: newHabit, error: insertError } = await supabase
         .from('user_habits')
         .insert({
           user_id: userId,
@@ -314,10 +350,10 @@ export const habitService = {
         .select('*, habit:habits(*)')
         .single();
         
-      if (error) throw error;
-      if (!data) throw new Error('Failed to add habit to user: No data returned');
+      if (insertError) throw insertError;
+      if (!newHabit) throw new Error('Failed to add habit to user: No data returned');
       
-      return { success: true, data };
+      return { success: true, data: newHabit };
     } catch (error) {
       const result = errorService.handleError(error, `Failed to add habit ${habitId} to user ${userId}`, {
         component: 'habitService.addHabitToUser'
@@ -334,13 +370,13 @@ export const habitService = {
    */
   removeHabitFromUser: async (userId: string, habitId: string, userHabitId?: string): Promise<ServiceResult> => {
     try {
-      let recordToDelete: { id: string } | null = null;
+      let recordId: string | null = null;
 
       // If userHabitId is provided, use it directly
       if (userHabitId) {
-        recordToDelete = { id: userHabitId };
+        recordId = userHabitId;
       } else {
-        // Otherwise, find the specific user_habit record to delete
+        // Otherwise, find the specific user_habit record
         const { data, error: findError } = await supabase
           .from('user_habits')
           .select('id')
@@ -353,26 +389,30 @@ export const habitService = {
           throw findError;
         }
 
-        recordToDelete = data;
+        recordId = data?.id || null;
       }
 
-      if (!recordToDelete) {
+      if (!recordId) {
         console.warn(`No user habit found for user ${userId} and habit ${habitId}`);
         return { success: true, data: null }; // Return null data to differentiate from error
       }
 
-      // Delete the specific user_habit record
-      const { error, data: deletedData } = await supabase
+      // IMPORTANT CHANGE: Instead of deleting the record, we just set active=false
+      // This preserves all configuration (schedules, reminders, etc.) for future use
+      const { error, data: updatedData } = await supabase
         .from('user_habits')
-        .delete()
-        .eq('id', recordToDelete.id)
+        .update({ 
+          active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recordId)
         .select();
         
       if (error) throw error;
       
       return { 
         success: true, 
-        data: deletedData ? deletedData[0] : null 
+        data: updatedData ? updatedData[0] : null 
       };
     } catch (error) {
       const result = errorService.handleError(error, `Failed to remove habit ${habitId} from user ${userId}`, {
