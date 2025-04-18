@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-import webpush from 'web-push'
+import { createClient } from '@supabase/supabase-js/dist/main/index.js'
+import { sendNotification } from './nativeWebPush'
 import { logPushSubscription, logPushError } from './logging'
 
 interface WebPushPayload {
@@ -59,11 +59,6 @@ export default async function handler(req: Request): Promise<Response> {
       )
     }
 
-    webpush.setVapidDetails(
-      VAPID_SUBJECT,
-      VAPID_PUBLIC_KEY,
-      VAPID_PRIVATE_KEY
-    )
 
     const { userId, habitId, title, body, data } = await req.json()
 
@@ -151,7 +146,7 @@ export default async function handler(req: Request): Promise<Response> {
             requireInteraction: pushPayload.requireInteraction
           })
 
-          await webpush.sendNotification(
+          await sendNotification(
             pushPayload.subscription,
             pushPayloadString
           )
