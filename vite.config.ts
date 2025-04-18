@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
           'pwa-192x192.png',
           'pwa-512x512.png'
         ],
-        srcDir: 'public',
+        srcDir: 'src',
         filename: 'service-worker.js',
         manifest: {
           name: 'ADAPT Health',
