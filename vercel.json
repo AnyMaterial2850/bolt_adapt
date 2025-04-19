@@ -19,6 +19,10 @@
     {
       "source": "/api/(.*)",
       "destination": "/api/$1.cjs"
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "destination": "/manifest.webmanifest"
     }
   ],
   "headers": [
