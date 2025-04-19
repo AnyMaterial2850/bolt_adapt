@@ -86,9 +86,9 @@ module.exports = async function handler(req, res) {
     }
 
     const results = await Promise.allSettled(
-      subscriptions.map(async (sub, index) => {
+      subscriptions.map(async (sub) => {
         try {
-          console.log(`Attempting to send notification ${index + 1}/${subscriptions.length} to endpoint: ${sub.endpoint.substring(0, 30)}...`);
+          console.log(`Attempting to send notification to endpoint: ${sub.endpoint.substring(0, 30)}...`);
           
           const pushPayload = {
             title: notificationTitle,
@@ -97,20 +97,14 @@ module.exports = async function handler(req, res) {
               ...data,
               habitId,
               timestamp: new Date().toISOString(),
-              notificationIndex: index + 1, // Add index for debugging
             },
-            tag: `habit-${habitId || 'general'}-${index}`, // Make each notification unique
+            tag: `habit-${habitId || 'general'}`,
             renotify: true,
             requireInteraction: true,
           };
           
-          // Add a small delay between notifications to prevent throttling
-          if (index > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * index));
-          }
-          
           const result = await webpush.sendNotification(sub, JSON.stringify(pushPayload));
-          console.log(`Notification ${index + 1} sent successfully:`, {
+          console.log(`Notification sent successfully:`, {
             statusCode: result.statusCode,
             endpoint: sub.endpoint.substring(0, 30) + '...',
           });
@@ -118,11 +112,10 @@ module.exports = async function handler(req, res) {
           return {
             success: true,
             endpoint: sub.endpoint,
-            index: index + 1,
             statusCode: result?.statusCode
           };
         } catch (error) {
-          console.error(`Error sending notification ${index + 1}:`, {
+          console.error(`Error sending notification:`, {
             statusCode: error.statusCode,
             message: error.message,
             body: error.body,

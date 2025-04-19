@@ -62,40 +62,32 @@ export function DebugPushNotificationButton() {
       const accessToken = session.access_token;
       addLog('Supabase session obtained successfully');
 
-      // Send 5 test notifications with a small delay between them
-      for (let i = 1; i <= 5; i++) {
-        addLog(`Sending test notification ${i}/5...`);
-        
-        const response = await fetch('/api/createNotification', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: JSON.stringify({
-            userId: user.id,
-            title: `Test Push Notification ${i}/5`,
-            body: `This is test push notification #${i} sent from the client.`,
-            data: { test: true, notificationNumber: i }
-          })
-        });
+      // Send a single test notification
+      addLog(`Sending test notification...`);
+      
+      const response = await fetch('/api/createNotification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          title: `Test Push Notification`,
+          body: `This is a test push notification sent from the client.`,
+          data: { test: true }
+        })
+      });
 
-        const result = await response.json();
-        addLog(`Notification ${i} response received: ${response.status} ${response.statusText}`);
-        
-        if (response.ok) {
-          addLog(`Notification ${i} success: ${result.message}`);
-          setStatus(`Success: ${result.message}`);
-        } else {
-          addLog(`Notification ${i} error: ${result.error || 'Unknown error'}`);
-          setStatus(`Error: ${result.error || 'Unknown error'}`);
-        }
-        
-        // Add a small delay between notifications
-        if (i < 5) {
-          addLog(`Waiting 1 second before sending next notification...`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+      const result = await response.json();
+      addLog(`Notification response received: ${response.status} ${response.statusText}`);
+      
+      if (response.ok) {
+        addLog(`Notification success: ${result.message}`);
+        setStatus(`Success: ${result.message}`);
+      } else {
+        addLog(`Notification error: ${result.error || 'Unknown error'}`);
+        setStatus(`Error: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
       const errorMsg = `Error sending notification: ${error instanceof Error ? error.message : String(error)}`;
@@ -118,7 +110,7 @@ export function DebugPushNotificationButton() {
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         <Button onClick={sendTestPushNotification} variant="outline" size="sm">
-          Send 5 Test Push Notifications
+          Send Test Push Notification
         </Button>
         <Button onClick={handleResetServiceWorker} variant="outline" size="sm" className="bg-red-50 hover:bg-red-100">
           Reset Service Worker
