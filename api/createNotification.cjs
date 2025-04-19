@@ -1,6 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import webpush from 'web-push';
-import fetch from 'node-fetch';
+const webpush = require('web-push');
+const fetch = require('node-fetch');
 
 const VAPID_PUBLIC_KEY = process.env.SUPABASE_VAPID_PUBLIC_KEY || process.env.VITE_VAPID_PUBLIC_KEY || '';
 const VAPID_PRIVATE_KEY = process.env.SUPABASE_VAPID_PRIVATE_KEY || '';
@@ -15,13 +14,9 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error('Supabase URL or Service Role Key not configured');
 }
 
-webpush.setVapidDetails(
-  VAPID_SUBJECT,
-  VAPID_PUBLIC_KEY,
-  VAPID_PRIVATE_KEY
-);
+webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST');
@@ -30,13 +25,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { userId, habitId, title, body, data } = req.body;
+    // Parse JSON body if undefined
+    let requestBody = req.body;
+    if (requestBody === undefined) {
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const raw = Buffer.concat(chunks).toString();
+      requestBody = raw ? JSON.parse(raw) : {};
+    }
+    const { userId, habitId, title, body: customBody, data } = requestBody;
 
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
     }
 
-    // Fetch subscriptions from Supabase
     const subscriptionsRes = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${userId}`, {
       headers: {
         apikey: SUPABASE_SERVICE_ROLE_KEY,
@@ -54,8 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ message: 'No subscriptions found for user' });
     }
 
-    // Optionally fetch habit details
-    let habitDetails: any = null;
+    let habitDetails = null;
     if (habitId) {
       const habitRes = await fetch(`${SUPABASE_URL}/rest/v1/habits?id=eq.${habitId}`, {
         headers: {
@@ -73,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const notificationTitle = title || (habitDetails ? `Time for: ${habitDetails.title}` : 'Reminder');
-    let notificationBody = body || '';
+    let notificationBody = customBody || '';
     if (habitDetails && habitDetails.target && habitDetails.target.length > 0 && habitDetails.unit) {
       if (notificationBody) {
         notificationBody += ` (Target: ${habitDetails.target.join(', ')} ${habitDetails.unit})`;
@@ -82,10 +85,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Send push notifications
     const results = await Promise.allSettled(
-      subscriptions.map(async (sub: any) => {
+      subscriptions.map(async (sub, index) => {
         try {
+          console.log(`Attempting to send notification ${index + 1}/${subscriptions.length} to endpoint: ${sub.endpoint.substring(0, 30)}...`);
+          
           const pushPayload = {
             title: notificationTitle,
             body: notificationBody,
@@ -93,14 +97,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ...data,
               habitId,
               timestamp: new Date().toISOString(),
+              notificationIndex: index + 1, // Add index for debugging
             },
-            tag: `habit-${habitId || 'general'}`,
+            tag: `habit-${habitId || 'general'}-${index}`, // Make each notification unique
             renotify: true,
             requireInteraction: true,
           };
-          await webpush.sendNotification(sub, JSON.stringify(pushPayload));
-          return { success: true, endpoint: sub.endpoint };
-        } catch (error: any) {
+          
+          // Add a small delay between notifications to prevent throttling
+          if (index > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * index));
+          }
+          
+          const result = await webpush.sendNotification(sub, JSON.stringify(pushPayload));
+          console.log(`Notification ${index + 1} sent successfully:`, {
+            statusCode: result.statusCode,
+            endpoint: sub.endpoint.substring(0, 30) + '...',
+          });
+          
+          return {
+            success: true,
+            endpoint: sub.endpoint,
+            index: index + 1,
+            statusCode: result?.statusCode
+          };
+        } catch (error) {
+          console.error(`Error sending notification ${index + 1}:`, {
+            statusCode: error.statusCode,
+            message: error.message,
+            body: error.body,
+            endpoint: sub.endpoint.substring(0, 30) + '...'
+          });
+          
+          // Clean up stale subscriptions
+          if (error.statusCode === 410 || error.statusCode === 404) {
+            await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?id=eq.${sub.id}`, {
+              method: 'DELETE',
+              headers: {
+                apikey: SUPABASE_SERVICE_ROLE_KEY,
+                Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                Accept: 'application/json',
+              },
+            });
+          }
           return {
             success: false,
             endpoint: sub.endpoint,
@@ -111,14 +150,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
     );
 
-    const successful = results.filter(r => r.status === 'fulfilled' && (r as PromiseFulfilledResult<any>).value.success).length;
-    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !(r as PromiseFulfilledResult<any>).value.success)).length;
+    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length;
 
     return res.status(200).json({
       message: `Sent ${successful} notifications, ${failed} failed`,
       results,
     });
-  } catch (error: any) {
+  } catch (error) {
     return res.status(500).json({ error: error.message, stack: error.stack });
   }
-}
+};

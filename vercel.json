@@ -11,14 +11,15 @@
       }
     },
     {
-      "src": "supabase/functions/createNotification/index.ts",
+      "src": "api/createNotification.cjs",
       "use": "@vercel/node"
     }
   ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/supabase/functions/(.*)", "destination": "/supabase/functions/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1.cjs"
+    }
   ],
   "headers": [
     {

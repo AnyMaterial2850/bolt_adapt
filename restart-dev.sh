@@ -21,4 +21,4 @@ fi
 
 # Start the development server
 echo "Starting development server..."
-cd "$(dirname "$0")" && npm run dev
+cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && npm run dev

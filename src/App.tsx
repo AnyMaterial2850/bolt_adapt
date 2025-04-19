@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SignIn } from './pages/auth/SignIn';
 import { SignUp } from './pages/auth/SignUp';
 import { Home } from './pages/Home';
@@ -16,6 +16,7 @@ import { ConnectionStatus } from './components/ConnectionStatus';
 import { DebugPanel } from './components/DebugPanel';
 import { DebugActivator } from './components/DebugActivator';
 import { DebugButton } from './components/DebugButton';
+import { ServiceWorkerDebugger } from './components/ServiceWorkerDebugger';
 import Profile from './pages/Profile/Profile';
 import { useReminderNotifications } from './hooks/useReminderNotifications';
 
@@ -28,6 +29,45 @@ function App() {
 
   useReminderNotifications();
 
+  // useLocation must be used inside Router, so we need to move Router up
+  return (
+    <Router>
+      <AppContent
+        loadUser={loadUser}
+        loading={loading}
+        user={user}
+        addLog={addLog}
+        connectionError={connectionError}
+        setConnectionError={setConnectionError}
+        appVersion={appVersion}
+        buildTime={buildTime}
+      />
+    </Router>
+  );
+}
+
+// Extract the main logic to a child component that is always rendered inside Router
+function AppContent({
+  loadUser,
+  loading,
+  user,
+  addLog,
+  connectionError,
+  setConnectionError,
+  appVersion,
+  buildTime,
+}: {
+  loadUser: any;
+  loading: boolean;
+  user: any;
+  addLog: any;
+  connectionError: string | null;
+  setConnectionError: (err: string | null) => void;
+  appVersion: string;
+  buildTime: string;
+}) {
+  const location = useLocation();
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -39,7 +79,7 @@ function App() {
             environment: import.meta.env.MODE
           }
         });
-        
+
         const isConnected = await checkSupabaseConnection();
         if (!isConnected) {
           setConnectionError('Unable to connect to the database. Please check your internet connection and try again.');
@@ -57,7 +97,7 @@ function App() {
     };
 
     init();
-  }, [loadUser, addLog, appVersion, buildTime]);
+  }, [loadUser, addLog, appVersion, buildTime, setConnectionError]);
 
   if (connectionError) {
     return (
@@ -76,6 +116,7 @@ function App() {
         </div>
         <DebugActivator />
         <DebugPanel />
+        <ServiceWorkerDebugger />
       </div>
     );
   }
@@ -86,12 +127,13 @@ function App() {
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
         <DebugActivator />
         <DebugPanel />
+        <ServiceWorkerDebugger />
       </div>
     );
   }
 
   return (
-    <Router>
+    <>
       <Routes>
         <Route
           path="/sign-in"
@@ -151,18 +193,20 @@ function App() {
         />
       </Routes>
       <HealthCheck />
-      <ConnectionStatus />
+      {location.pathname !== '/sign-in' && location.pathname !== '/sign-up' && (
+        <ConnectionStatus />
+      )}
       <DebugActivator />
       <DebugPanel />
       <DebugButton />
-      
+      <ServiceWorkerDebugger />
       {/* Version info in production */}
       {import.meta.env.MODE === 'production' && (
         <div className="fixed bottom-1 right-1 text-[8px] text-gray-400 opacity-50 z-10">
           v{appVersion}
         </div>
       )}
-    </Router>
+    </>
   );
 }
 

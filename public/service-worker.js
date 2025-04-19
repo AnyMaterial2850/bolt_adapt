@@ -1,11 +1,36 @@
+// Log service worker activation
+self.addEventListener('activate', event => {
+  console.log('[Service Worker] Activated', new Date().toISOString());
+  // Claim clients to ensure the service worker takes control immediately
+  event.waitUntil(self.clients.claim());
+});
+
+// Log service worker installation
+self.addEventListener('install', event => {
+  console.log('[Service Worker] Installed', new Date().toISOString());
+  // Skip waiting to ensure the service worker activates immediately
+  self.skipWaiting();
+});
+
+// Enhanced push event handler with detailed logging
 self.addEventListener('push', event => {
+  console.log('[Service Worker] Push received at', new Date().toISOString());
+  
   let data = {};
+  let rawData = null;
+  
   if (event.data) {
     try {
+      rawData = event.data.text();
+      console.log('[Service Worker] Raw push data:', rawData);
       data = event.data.json();
+      console.log('[Service Worker] Parsed push data:', JSON.stringify(data));
     } catch (e) {
-      data = { title: 'Notification', body: event.data.text() };
+      console.error('[Service Worker] Error parsing push data:', e);
+      data = { title: 'Notification', body: rawData || 'No content' };
     }
+  } else {
+    console.warn('[Service Worker] Push event received without data');
   }
 
   const title = data.title || 'Notification';
@@ -17,27 +42,88 @@ self.addEventListener('push', event => {
     tag: data.tag || undefined,
     renotify: data.renotify || false,
     requireInteraction: data.requireInteraction || false,
-    actions: data.actions || []
+    actions: data.actions || [],
+    timestamp: Date.now()
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  console.log('[Service Worker] Showing notification:', { title, options });
+  
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+      .then(() => {
+        console.log('[Service Worker] Notification shown successfully');
+        // Attempt to send a message to any open clients
+        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      })
+      .then(clients => {
+        if (clients && clients.length) {
+          console.log('[Service Worker] Sending message to clients:', clients.length);
+          clients.forEach(client => {
+            client.postMessage({
+              type: 'PUSH_RECEIVED',
+              title,
+              options,
+              timestamp: Date.now()
+            });
+          });
+        }
+      })
+      .catch(err => {
+        console.error('[Service Worker] Error showing notification:', err);
+      })
+  );
 });
 
+// Enhanced notification click handler with logging
 self.addEventListener('notificationclick', event => {
+  console.log('[Service Worker] Notification clicked:', {
+    tag: event.notification.tag,
+    title: event.notification.title,
+    timestamp: new Date().toISOString(),
+    data: event.notification.data
+  });
+  
+  // Close the notification
   event.notification.close();
+  
+  // Extract any custom data
+  const notificationData = event.notification.data || {};
+  console.log('[Service Worker] Notification data:', notificationData);
+  
+  // Handle the click based on the notification data
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      if (clientList.length > 0) {
-        let client = clientList[0];
-        for (let i = 0; i < clientList.length; i++) {
-          if (clientList[i].focused) {
-            client = clientList[i];
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(clientList => {
+        console.log('[Service Worker] Found clients:', clientList.length);
+        
+        if (clientList.length > 0) {
+          // Find a focused client or use the first one
+          let client = clientList[0];
+          for (let i = 0; i < clientList.length; i++) {
+            if (clientList[i].focused) {
+              client = clientList[i];
+              break;
+            }
           }
+          
+          // Send a message to the client about the notification click
+          client.postMessage({
+            type: 'NOTIFICATION_CLICKED',
+            notificationData,
+            timestamp: Date.now()
+          });
+          
+          console.log('[Service Worker] Focusing existing client:', client.url);
+          return client.focus();
         }
-        return client.focus();
-      }
-      return clients.openWindow('/');
-    })
+        
+        // If no clients are open, open a new window
+        console.log('[Service Worker] No clients found, opening new window');
+        return clients.openWindow('/');
+      })
+      .catch(err => {
+        console.error('[Service Worker] Error handling notification click:', err);
+      })
   );
 });
 

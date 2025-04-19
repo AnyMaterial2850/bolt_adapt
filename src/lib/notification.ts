@@ -118,58 +118,35 @@ if (!isValidVapidKey(cleanedVapidKey)) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-    // Clear any existing push subscriptions to avoid conflicts
-    // Consider removing this to avoid unnecessary unsubscribe on every subscription attempt
-    // const existingSubscription = await registration.pushManager.getSubscription();
-    // if (existingSubscription) {
-    //   await existingSubscription.unsubscribe();
-    //   console.log("Existing push subscription unsubscribed");
-    // }
-
-    // Clear all caches to avoid stale service worker issues
-    // Consider removing this to avoid clearing caches on every subscription attempt
-    // const cacheNames = await caches.keys();
-    // await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
-    // console.log("All caches cleared");
-
-    // Retry push subscription with exponential backoff
-    const maxRetries = 5;
-    let attempt = 0;
-    let subscription = null;
-    while (attempt < maxRetries) {
-      try {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(cleanedVapidKey),
-        });
-        break; // Success
-      } catch (err) {
-        console.error(`Push subscription attempt ${attempt + 1} failed:`, err);
-        attempt++;
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
-        await new Promise(resolve => setTimeout(resolve, delay));
+      // Check for existing push subscription
+      let subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        console.log("Existing push subscription found, reusing it.");
+        await saveSubscription(subscription);
+        return;
       }
-    }
 
-    if (!subscription) {
-      throw new Error("Failed to subscribe to push notifications after multiple attempts");
-    }
+      // No existing subscription, create a new one
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(cleanedVapidKey),
+      });
 
-    await saveSubscription(subscription);
-  } catch (error) {
-    console.error("Push subscription error:", error);
-    if (error) {
-      if (typeof error === 'object') {
-        console.error("Error name:", (error as any).name);
-        console.error("Error message:", (error as any).message);
-        if ((error as any).stack) {
-          console.error("Error stack:", (error as any).stack);
+      await saveSubscription(subscription);
+    } catch (error) {
+      console.error("Push subscription error:", error);
+      if (error) {
+        if (typeof error === 'object') {
+          console.error("Error name:", (error as any).name);
+          console.error("Error message:", (error as any).message);
+          if ((error as any).stack) {
+            console.error("Error stack:", (error as any).stack);
+          }
+        } else {
+          console.error("Error details:", error);
         }
-      } else {
-        console.error("Error details:", error);
       }
     }
-  }
 };
 
 const saveSubscription = async (subscription: PushSubscription) => {
