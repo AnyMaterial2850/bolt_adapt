@@ -14,6 +14,15 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error('Supabase URL or Service Role Key not configured');
 }
 
+// Log VAPID key information (without revealing the full private key)
+console.log('VAPID configuration:', {
+  subject: VAPID_SUBJECT,
+  publicKeyLength: VAPID_PUBLIC_KEY.length,
+  privateKeyLength: VAPID_PRIVATE_KEY.length,
+  publicKeyStart: VAPID_PUBLIC_KEY.substring(0, 10) + '...',
+  privateKeyStart: VAPID_PRIVATE_KEY.substring(0, 5) + '...'
+});
+
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
 module.exports = async function handler(req, res) {
@@ -90,6 +99,25 @@ module.exports = async function handler(req, res) {
         try {
           console.log(`Attempting to send notification to endpoint: ${sub.endpoint.substring(0, 30)}...`);
           
+          // Verify subscription format
+          if (!sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
+            console.error('Invalid subscription format:', sub);
+            return {
+              success: false,
+              endpoint: sub.endpoint || 'unknown',
+              error: 'Invalid subscription format'
+            };
+          }
+          
+          // Log subscription details
+          console.log('Subscription details:', {
+            endpoint: sub.endpoint.substring(0, 30) + '...',
+            keys: {
+              p256dh: sub.keys.p256dh ? (sub.keys.p256dh.substring(0, 10) + '...') : 'missing',
+              auth: sub.keys.auth ? (sub.keys.auth.substring(0, 5) + '...') : 'missing'
+            }
+          });
+          
           const pushPayload = {
             title: notificationTitle,
             body: notificationBody,
@@ -103,6 +131,7 @@ module.exports = async function handler(req, res) {
             requireInteraction: true,
           };
           
+          console.log('Sending push notification with payload:', JSON.stringify(pushPayload));
           const result = await webpush.sendNotification(sub, JSON.stringify(pushPayload));
           console.log(`Notification sent successfully:`, {
             statusCode: result.statusCode,
@@ -133,6 +162,15 @@ module.exports = async function handler(req, res) {
               },
             });
           }
+          
+          // Log more details about the error
+          console.log('Full error details:', {
+            statusCode: error.statusCode,
+            message: error.message,
+            body: error.body,
+            stack: error.stack,
+            endpoint: sub.endpoint
+          });
           return {
             success: false,
             endpoint: sub.endpoint,
