@@ -27,14 +27,8 @@ npm run build:vercel || {
   exit 1
 }
 
-# Step 4: Deploy Supabase functions
-echo "Deploying Supabase functions..."
-npx supabase functions deploy || {
-  echo "Supabase functions deploy failed."
-  exit 1
-}
-
-# Step 5: Deploy to Vercel
+# Step 4: Deploy to Vercel
+# Note: We're skipping Supabase functions deployment as we've migrated to Vercel serverless functions
 echo "Deploying to Vercel..."
 npx vercel --prod || {
   echo "Vercel deploy failed."
