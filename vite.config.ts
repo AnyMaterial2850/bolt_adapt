@@ -105,7 +105,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': {
           // Proxy to deployed backend for /api/createNotification
-          target: 'https://adapt-7d9ahd3gz-adaptjourneyteam.vercel.app',
+          target: 'https://adapt-mbh0l8c7a-adaptjourneyteam.vercel.app',
           changeOrigin: true,
           secure: true,
           rewrite: (path) => path.replace(/^\/api/, '/api'),
