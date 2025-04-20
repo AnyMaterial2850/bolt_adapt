@@ -10,7 +10,12 @@ export function ServiceWorkerDebugger() {
       const data = event.data;
       
       // Only process messages from the service worker
-      if (data && (data.type === 'PUSH_RECEIVED' || data.type === 'NOTIFICATION_CLICKED')) {
+      if (data && (
+        data.type === 'PUSH_RECEIVED' ||
+        data.type === 'NOTIFICATION_CLICKED' ||
+        data.type === 'PUSH_RECEIVED_FALLBACK' ||
+        data.type === 'PUSH_ERROR'
+      )) {
         console.log('Received message from service worker:', data);
         
         setMessages(prev => [

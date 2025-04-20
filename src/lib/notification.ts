@@ -213,27 +213,47 @@ const requestNotificationPermission = async () => {
     // Check if Notification API is available
     if (typeof Notification === 'undefined') {
       console.warn("Notification API is not available in this browser/context");
+      console.log("Attempting to use push subscription without Notification API");
+      
       // Try to continue with push subscription anyway
       try {
+        // Check if service worker is supported
+        if (!("serviceWorker" in navigator)) {
+          console.error("Service Worker API is not supported in this browser");
+          throw new Error("Service Worker API is not supported in this browser");
+        }
+        
+        // Try to subscribe to push notifications even without Notification API
         await subscribeToPushNotifications();
+        console.log("Successfully subscribed to push notifications without Notification API");
         return Promise.resolve();
       } catch (subError) {
         console.error("Failed to subscribe to push notifications:", subError);
-        throw new Error("Push notifications are not supported in this browser/context");
+        // Don't throw here, just log the error and continue
+        // This allows the app to continue working even if push notifications aren't available
+        return Promise.resolve();
       }
     }
     
+    // Notification API is available, request permission
     const result = await Notification.requestPermission();
     if (result === "granted") {
       // Even if subscribeToPushNotifications fails, we still want to return success
       // since the basic notification permission was granted
-      await subscribeToPushNotifications();
+      try {
+        await subscribeToPushNotifications();
+      } catch (subError) {
+        console.error("Failed to subscribe to push notifications:", subError);
+        // Don't throw here, just log the error
+      }
       return Promise.resolve();
     }
     throw new Error("Notifications permission denied. Please enable notifications to receive reminders.");
   } catch (error: unknown) {
     console.warn("Error requesting notification permission:", error);
-    throw error;
+    // Don't rethrow the error, just log it and return
+    // This allows the app to continue working even if notifications aren't available
+    return Promise.resolve();
   }
 };
 

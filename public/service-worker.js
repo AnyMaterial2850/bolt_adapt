@@ -49,12 +49,51 @@ self.addEventListener('push', event => {
   console.log('[Service Worker] Showing notification:', { title, options });
   
   event.waitUntil(
-    self.registration.showNotification(title, options)
-      .then(() => {
+    (async () => {
+      try {
+        // Check if showNotification is available
+        if (!self.registration || typeof self.registration.showNotification !== 'function') {
+          console.warn('[Service Worker] showNotification is not available in this browser/context');
+          // Fallback: Send a message to clients instead of showing a notification
+          const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+          if (clients && clients.length) {
+            console.log('[Service Worker] Using fallback: sending message to clients');
+            clients.forEach(client => {
+              client.postMessage({
+                type: 'PUSH_RECEIVED_FALLBACK',
+                title,
+                options,
+                timestamp: Date.now()
+              });
+            });
+          }
+          return;
+        }
+        
+        // If showNotification is available, use it
+        await self.registration.showNotification(title, options);
         console.log('[Service Worker] Notification shown successfully');
         // Attempt to send a message to any open clients
         return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      })
+      } catch (error) {
+        console.error('[Service Worker] Error in push event:', error);
+        // Try to send a message to clients as fallback
+        try {
+          const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+          if (clients && clients.length) {
+            clients.forEach(client => {
+              client.postMessage({
+                type: 'PUSH_ERROR',
+                error: error.message || 'Unknown error',
+                timestamp: Date.now()
+              });
+            });
+          }
+        } catch (e) {
+          console.error('[Service Worker] Failed to send error message to clients:', e);
+        }
+      }
+    })()
       .then(clients => {
         if (clients && clients.length) {
           console.log('[Service Worker] Sending message to clients:', clients.length);

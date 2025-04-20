@@ -26,13 +26,24 @@ export function DebugPushNotificationButton() {
 
     try {
       // Check if Notification API is available
-      if (typeof Notification === 'undefined') {
+      const notificationApiAvailable = typeof Notification !== 'undefined';
+      if (!notificationApiAvailable) {
         addLog('WARNING: Notification API is not available in this browser/context');
         addLog('This is common on some mobile browsers or in private browsing mode');
         addLog('Will attempt to continue with push subscription anyway...');
       } else {
         addLog('Notification API is available');
       }
+
+      // Check if service worker is supported
+      const serviceWorkerSupported = 'serviceWorker' in navigator;
+      if (!serviceWorkerSupported) {
+        const errorMsg = 'Service Worker API is not supported in this browser';
+        addLog(`ERROR: ${errorMsg}`);
+        setStatus(`Error: ${errorMsg}`);
+        return;
+      }
+      addLog('Service Worker API is supported');
 
       addLog('Requesting notification permission...');
       setStatus('Requesting notification permission...');
@@ -74,29 +85,46 @@ export function DebugPushNotificationButton() {
       // Send a single test notification
       addLog(`Sending test notification...`);
       
-      const response = await fetch('/api/createNotification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          title: `Test Push Notification`,
-          body: `This is a test push notification sent from the client.`,
-          data: { test: true }
-        })
-      });
-
-      const result = await response.json();
-      addLog(`Notification response received: ${response.status} ${response.statusText}`);
+      // Add a note about mobile browser compatibility
+      if (!notificationApiAvailable) {
+        addLog('NOTE: Since Notification API is not available, this will use the fallback mechanism');
+        addLog('You may not see a visible notification, but the message will be sent to the service worker');
+      }
       
-      if (response.ok) {
-        addLog(`Notification success: ${result.message}`);
-        setStatus(`Success: ${result.message}`);
-      } else {
-        addLog(`Notification error: ${result.error || 'Unknown error'}`);
-        setStatus(`Error: ${result.error || 'Unknown error'}`);
+      try {
+        const response = await fetch('/api/createNotification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            title: `Test Push Notification`,
+            body: `This is a test push notification sent from the client.`,
+            data: {
+              test: true,
+              notificationApiAvailable, // Include this flag so the server knows about the client capability
+              timestamp: new Date().toISOString()
+            }
+          })
+        });
+
+        const result = await response.json();
+        addLog(`Notification response received: ${response.status} ${response.statusText}`);
+        
+        if (response.ok) {
+          addLog(`Notification success: ${result.message}`);
+          setStatus(`Success: ${result.message}`);
+        } else {
+          addLog(`Notification error: ${result.error || 'Unknown error'}`);
+          setStatus(`Error: ${result.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        const errorMsg = `Network error sending notification: ${error instanceof Error ? error.message : String(error)}`;
+        addLog(errorMsg);
+        setStatus(errorMsg);
+        return;
       }
     } catch (error) {
       const errorMsg = `Error sending notification: ${error instanceof Error ? error.message : String(error)}`;
