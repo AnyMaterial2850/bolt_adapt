@@ -25,6 +25,15 @@ export function DebugPushNotificationButton() {
     setStatus('Sending test push notification...');
 
     try {
+      // Check if Notification API is available
+      if (typeof Notification === 'undefined') {
+        addLog('WARNING: Notification API is not available in this browser/context');
+        addLog('This is common on some mobile browsers or in private browsing mode');
+        addLog('Will attempt to continue with push subscription anyway...');
+      } else {
+        addLog('Notification API is available');
+      }
+
       addLog('Requesting notification permission...');
       setStatus('Requesting notification permission...');
       await requestNotificationPermission();

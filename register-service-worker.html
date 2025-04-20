@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Service Worker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            color: #007FFF;
+        }
+        .card {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #007FFF;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .warning {
+            color: orange;
+            font-weight: bold;
+        }
+        .log {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 20px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .step {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Register Service Worker and Enable Notifications</h1>
+    
+    <div class="card">
+        <h2>Step 1: Register Service Worker</h2>
+        <p>Click the button below to register the service worker:</p>
+        <button id="register-sw">Register Service Worker</button>
+        <div id="sw-status">Status: Not registered</div>
+    </div>
+    
+    <div class="card">
+        <h2>Step 2: Request Notification Permission</h2>
+        <p>Click the button below to request notification permission:</p>
+        <button id="request-permission">Request Permission</button>
+        <div id="permission-status">Status: Unknown</div>
+    </div>
+    
+    <div class="card">
+        <h2>Step 3: Create Subscription</h2>
+        <p>Click the button below to create a push subscription:</p>
+        <button id="create-subscription">Create Subscription</button>
+        <div id="subscription-status">Status: No subscription</div>
+        <pre id="subscription-json"></pre>
+    </div>
+    
+    <div class="card">
+        <h2>Step 4: Test Notification</h2>
+        <p>Click the button below to test a notification:</p>
+        <button id="test-notification">Test Notification</button>
+    </div>
+    
+    <div class="log" id="log"></div>
+    
+    <script>
+        // Helper function to log messages
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `${timestamp}: ${message}<br>`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+        
+        // Check current notification permission
+        function checkNotificationPermission() {
+            if (!('Notification' in window)) {
+                document.getElementById('permission-status').innerHTML = 'Status: <span class="error">Notifications not supported</span>';
+                return false;
+            }
+            
+            const permission = Notification.permission;
+            let statusHTML = '';
+            
+            if (permission === 'granted') {
+                statusHTML = 'Status: <span class="success">Permission granted</span>';
+            } else if (permission === 'denied') {
+                statusHTML = 'Status: <span class="error">Permission denied</span>';
+            } else {
+                statusHTML = 'Status: <span class="warning">Permission not requested</span>';
+            }
+            
+            document.getElementById('permission-status').innerHTML = statusHTML;
+            return permission === 'granted';
+        }
+        
+        // Check if service worker is registered
+        async function checkServiceWorker() {
+            if (!('serviceWorker' in navigator)) {
+                document.getElementById('sw-status').innerHTML = 'Status: <span class="error">Service Worker not supported</span>';
+                return false;
+            }
+            
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                
+                if (registrations.length === 0) {
+                    document.getElementById('sw-status').innerHTML = 'Status: <span class="warning">Not registered</span>';
+                    return false;
+                }
+                
+                let statusHTML = 'Status: <span class="success">Registered</span><ul>';
+                
+                registrations.forEach(registration => {
+                    statusHTML += `<li>Scope: ${registration.scope}</li>`;
+                    statusHTML += `<li>State: ${registration.active ? 'active' : registration.installing ? 'installing' : registration.waiting ? 'waiting' : 'unknown'}</li>`;
+                });
+                
+                statusHTML += '</ul>';
+                document.getElementById('sw-status').innerHTML = statusHTML;
+                return true;
+            } catch (error) {
+                document.getElementById('sw-status').innerHTML = `Status: <span class="error">Error: ${error.message}</span>`;
+                log(`Error checking service worker: ${error.message}`);
+                return false;
+            }
+        }
+        
+        // Check subscription
+        async function checkSubscription() {
+            if (!('serviceWorker' in navigator)) {
+                document.getElementById('subscription-status').innerHTML = 'Status: <span class="error">Service Worker not supported</span>';
+                return null;
+            }
+            
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                
+                if (!registration) {
+                    document.getElementById('subscription-status').innerHTML = 'Status: <span class="warning">No service worker registration</span>';
+                    return null;
+                }
+                
+                const subscription = await registration.pushManager.getSubscription();
+                
+                if (!subscription) {
+                    document.getElementById('subscription-status').innerHTML = 'Status: <span class="warning">No subscription</span>';
+                    return null;
+                }
+                
+                document.getElementById('subscription-status').innerHTML = 'Status: <span class="success">Subscription active</span>';
+                document.getElementById('subscription-json').textContent = JSON.stringify(subscription, null, 2);
+                
+                log('Subscription found: ' + subscription.endpoint.substring(0, 30) + '...');
+                return subscription;
+            } catch (error) {
+                document.getElementById('subscription-status').innerHTML = `Status: <span class="error">Error: ${error.message}</span>`;
+                log(`Error checking subscription: ${error.message}`);
+                return null;
+            }
+        }
+        
+        // Register service worker
+        async function registerServiceWorker() {
+            if (!('serviceWorker' in navigator)) {
+                log('Service Worker not supported');
+                return null;
+            }
+            
+            try {
+                log('Registering service worker...');
+                const registration = await navigator.serviceWorker.register('/service-worker.js');
+                log(`Service worker registered with scope: ${registration.scope}`);
+                
+                // Wait for the service worker to be active
+                if (registration.installing) {
+                    log('Service worker installing...');
+                    
+                    await new Promise((resolve) => {
+                        registration.installing.addEventListener('statechange', (event) => {
+                            log(`Service worker state changed: ${event.target.state}`);
+                            if (event.target.state === 'activated') {
+                                resolve();
+                            }
+                        });
+                    });
+                }
+                
+                await checkServiceWorker();
+                return registration;
+            } catch (error) {
+                log(`Error registering service worker: ${error.message}`);
+                return null;
+            }
+        }
+        
+        // Request notification permission
+        async function requestNotificationPermission() {
+            if (!('Notification' in window)) {
+                log('Notifications not supported');
+                return false;
+            }
+            
+            try {
+                log('Requesting notification permission...');
+                const permission = await Notification.requestPermission();
+                log(`Notification permission: ${permission}`);
+                
+                checkNotificationPermission();
+                return permission === 'granted';
+            } catch (error) {
+                log(`Error requesting notification permission: ${error.message}`);
+                return false;
+            }
+        }
+        
+        // Create push subscription
+        async function createPushSubscription() {
+            if (!('serviceWorker' in navigator)) {
+                log('Service Worker not supported');
+                return null;
+            }
+            
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                
+                if (!registration) {
+                    log('No service worker registration found');
+                    return null;
+                }
+                
+                // Get VAPID public key from the server
+                // In this case, we'll use the one from the .env file
+                // In a real application, you would fetch this from the server
+                const vapidPublicKey = 'BEn_pFMZHQXnrVP9_kLiEbVXoHLEiLBTAKMQHjka-svQh6AvM2WPDzC5lqXd4SnQGGjqAhU8JJeJcF9XYWUuT_s';
+                
+                // Convert the VAPID public key to a Uint8Array
+                function urlBase64ToUint8Array(base64String) {
+                    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                    const base64 = (base64String + padding)
+                        .replace(/\-/g, '+')
+                        .replace(/_/g, '/');
+                    
+                    const rawData = window.atob(base64);
+                    const outputArray = new Uint8Array(rawData.length);
+                    
+                    for (let i = 0; i < rawData.length; ++i) {
+                        outputArray[i] = rawData.charCodeAt(i);
+                    }
+                    return outputArray;
+                }
+                
+                // Check if we already have a subscription
+                let subscription = await registration.pushManager.getSubscription();
+                
+                if (subscription) {
+                    log('Existing subscription found, unsubscribing...');
+                    await subscription.unsubscribe();
+                }
+                
+                // Create a new subscription
+                log('Creating new push subscription...');
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+                });
+                
+                log('Push subscription created');
+                
+                // Save the subscription to the server
+                // In a real application, you would send this to your server
+                log('Subscription details:');
+                log(JSON.stringify(subscription));
+                
+                await checkSubscription();
+                return subscription;
+            } catch (error) {
+                log(`Error creating push subscription: ${error.message}`);
+                return null;
+            }
+        }
+        
+        // Show a test notification
+        async function showTestNotification() {
+            if (!('Notification' in window)) {
+                log('Notifications not supported');
+                return;
+            }
+            
+            if (Notification.permission !== 'granted') {
+                log('Notification permission not granted');
+                return;
+            }
+            
+            try {
+                log('Showing test notification...');
+                
+                const notification = new Notification('Test Notification', {
+                    body: 'This is a test notification from the browser',
+                    icon: '/pwa-192x192.png',
+                    badge: '/pwa-192x192.png',
+                    tag: 'test-notification',
+                    renotify: true,
+                    requireInteraction: true,
+                    data: {
+                        timestamp: new Date().toISOString(),
+                        test: true
+                    }
+                });
+                
+                notification.onclick = () => {
+                    log('Notification clicked');
+                    notification.close();
+                };
+                
+                log('Test notification shown');
+            } catch (error) {
+                log(`Error showing notification: ${error.message}`);
+            }
+        }
+        
+        // Initialize
+        async function initialize() {
+            await checkServiceWorker();
+            checkNotificationPermission();
+            await checkSubscription();
+        }
+        
+        // Event listeners
+        document.getElementById('register-sw').addEventListener('click', registerServiceWorker);
+        document.getElementById('request-permission').addEventListener('click', requestNotificationPermission);
+        document.getElementById('create-subscription').addEventListener('click', createPushSubscription);
+        document.getElementById('test-notification').addEventListener('click', showTestNotification);
+        
+        // Initialize on page load
+        window.addEventListener('load', initialize);
+    </script>
+</body>
+</html>

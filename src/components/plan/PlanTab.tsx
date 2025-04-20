@@ -4,6 +4,8 @@ import { useOutletContext } from 'react-router-dom';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useDebugStore } from '../../stores/debugStore';
+import { useHabitStore } from '../../stores/habitStore';
+import { useAuthStore } from '../../stores/authStore';
 import confetti from 'canvas-confetti';
 import { PlanTabPresentation } from './PlanTabPresentation';
 
@@ -22,6 +24,7 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
   const { selectedDate } = useOutletContext<LayoutContext>();
   const [showCelebration, setShowCelebration] = useState(false);
   const { addLog } = useDebugStore();
+  const { user } = useAuthStore();
 
   const [showDebugData, setShowDebugData] = useState(false);
 
@@ -59,7 +62,10 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
       return 0;
     });
     return habitItems;
-  }, [activeHabits, currentDay]);
+  }, [activeHabits, currentDay, habits]); // Added habits as a dependency to ensure updates
+
+  // Import the habit store to force reload after updates
+  const { loadUserHabits } = useHabitStore();
 
   const handleReminderToggle = useCallback(async (habitId: string, eventTime: string, newReminderTime: string | null): Promise<void> => {
     try {
@@ -88,13 +94,19 @@ export function PlanTab({ habits, onToggleCompletion, completions }: PlanTabProp
       if (error) {
         throw error;
       }
+      
+      // Force reload user habits to update the UI
+      if (user?.id) {
+        await loadUserHabits(user.id);
+      }
+      
       addLog(`Reminder ${newReminderTime ? 'added' : 'removed'} successfully`, 'success');
     } catch (err) {
       console.error('Error updating reminder:', err);
       addLog(`Failed to update reminder: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
       throw err;
     }
-  }, [habits, currentDay, addLog]);
+  }, [habits, currentDay, addLog, loadUserHabits, user]);
 
   useEffect(() => {
     if (scheduledHabits.length === 0) return;

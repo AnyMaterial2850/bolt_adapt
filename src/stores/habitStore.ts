@@ -42,6 +42,7 @@ interface HabitState {
   // Actions
   loadHabits: () => Promise<void>;
   loadUserHabits: (userId: string) => Promise<void>;
+  forceReloadUserHabits: (userId: string) => Promise<void>; // New function to force reload
   loadHabitById: (id: string) => Promise<void>;
   createHabit: (formData: HabitFormData, userId: string) => Promise<boolean>;
   updateHabit: (id: string, formData: HabitFormData) => Promise<boolean>;
@@ -195,6 +196,33 @@ export const useHabitStore = create<HabitState>((set, get) => ({
         loadingUserHabits: false
       });
       addLog(`Failed to load user habits: ${result.error}`, 'error', { component: 'habitStore.loadUserHabits' });
+    }
+  },
+  
+  // Force reload user habits regardless of cache
+  forceReloadUserHabits: async (userId: string) => {
+    const { addLog } = useDebugStore.getState();
+    
+    addLog(`Force reloading habits for user ${userId}...`, 'info', { component: 'habitStore.forceReloadUserHabits' });
+    
+    set({ loadingUserHabits: true, userHabitsError: null });
+    
+    const result = await habitService.getUserHabits(userId);
+    
+    if (result.success && result.data) {
+      set({
+        userHabits: result.data,
+        loadingUserHabits: false,
+        lastLoadedUserId: userId,
+        userHabitsLoadedAt: Date.now()
+      });
+      addLog(`Force reloaded ${result.data.length} user habits`, 'success', { component: 'habitStore.forceReloadUserHabits' });
+    } else {
+      set({
+        userHabitsError: result.error || 'Failed to force reload user habits',
+        loadingUserHabits: false
+      });
+      addLog(`Failed to force reload user habits: ${result.error}`, 'error', { component: 'habitStore.forceReloadUserHabits' });
     }
   },
   

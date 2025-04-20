@@ -210,6 +210,19 @@ const saveSubscription = async (subscription: PushSubscription) => {
  */
 const requestNotificationPermission = async () => {
   try {
+    // Check if Notification API is available
+    if (typeof Notification === 'undefined') {
+      console.warn("Notification API is not available in this browser/context");
+      // Try to continue with push subscription anyway
+      try {
+        await subscribeToPushNotifications();
+        return Promise.resolve();
+      } catch (subError) {
+        console.error("Failed to subscribe to push notifications:", subError);
+        throw new Error("Push notifications are not supported in this browser/context");
+      }
+    }
+    
     const result = await Notification.requestPermission();
     if (result === "granted") {
       // Even if subscribeToPushNotifications fails, we still want to return success

@@ -48,11 +48,19 @@ export function HabitConfiguration() {
   const { habitId } = useParams();
   const { user } = useAuthStore();
   const { addLog } = useDebugStore();
+  const { loadUserHabits, forceReloadUserHabits } = useHabitStore();
   const [loading, setLoading] = useState(true);
   const [habit, setHabit] = useState<UserHabit | null>(null);
   const [dailySchedules, setDailySchedules] = useState<DaySchedule[]>([]);
   const [isActive, setIsActive] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<string>('Mon');
+  // Initialize selectedDay to the current day of the week
+  const [selectedDay, setSelectedDay] = useState<string>(() => {
+    const today = new Date();
+    const dayIndex = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    // Convert to our day format (Mon, Tue, etc.)
+    const dayMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return dayMap[dayIndex];
+  });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -395,7 +403,7 @@ export function HabitConfiguration() {
       addLog('Changes saved successfully', 'success');
 
       // Update local state
-      setHabit(prev => prev ? 
+      setHabit(prev => prev ?
         {
         ...prev,
         active: isActive,
@@ -406,9 +414,19 @@ export function HabitConfiguration() {
           description: habitDescription || null,
           category: habitCategory,
           icon: habitIcon,
-        } 
+        }
         : undefined
       } : null);
+
+      // Force reload user habits to update the UI immediately
+      if (user?.id) {
+        try {
+          await forceReloadUserHabits(user.id);
+          addLog('Force reloaded user habits', 'success');
+        } catch (error) {
+          console.error('Failed to force reload user habits:', error);
+        }
+      }
 
       setHasUnsavedChanges(false);
 
@@ -493,16 +511,20 @@ export function HabitConfiguration() {
     setIconSearch('');
     setIconResults([]);
   };
+const toggleDay = async (dayId: string) => {
+  // Update local state
+  setDailySchedules(prev =>
+    prev.map(schedule =>
+      schedule.day === dayId
+        ? { ...schedule, active: !schedule.active }
+        : schedule
+    )
+  );
+  
+  // Set unsaved changes flag
+  setHasUnsavedChanges(true);
+};
 
-  const toggleDay = (dayId: string) => {
-    setDailySchedules(prev => 
-      prev.map(schedule => 
-        schedule.day === dayId
-          ? { ...schedule, active: !schedule.active }
-          : schedule
-      )
-    );
-  };
 
 
   const addSchedule = (dayId: string) => {
@@ -830,10 +852,8 @@ export function HabitConfiguration() {
                     relative w-10 h-10 rounded-full flex items-center justify-center font-medium
                     transition-all duration-300
                     ${schedule?.active
-                      ? isSelected
-                        ? 'bg-[#4CAF50] text-white'
-                        : 'bg-[#4CAF50]/20 text-[#4CAF50]'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-[#4CAF50] text-white' // Active: Full green
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200' // Inactive: Gray
                     }
                     ${isAnimating ? 'ring-2 ring-[#4CAF50] ring-offset-2 scale-110' : ''}
                   `}

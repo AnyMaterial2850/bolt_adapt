@@ -141,20 +141,12 @@ export function Home() {
     try {
       // If we have a userHabitId, navigate to that (for user's habits)
       if (userHabitId) {
-        // Show a toast to provide feedback
-        setToast({
-          message: 'Opening habit configuration...',
-          type: 'success'
-        });
-        
         // Use direct path navigation for maximum reliability
         const path = `/habits/${userHabitId}`;
         console.log(`Navigating to: ${path}`);
         
-        // Use a slight delay to ensure the toast appears before navigation
-        setTimeout(() => {
-          navigate(path);
-        }, 100);
+        // Navigate immediately without showing a toast
+        navigate(path);
       } else {
         // For habits not yet added by the user, show a toast message
         setToast({
