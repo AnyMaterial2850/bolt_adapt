@@ -27,6 +27,20 @@ function urlBase64ToUint8Array(base64String: string) {
  * Subscribe to push notifications if possible
  * This is optional and will gracefully degrade if VAPID key is missing
  */
+// Generate a unique device identifier that persists across sessions
+const getDeviceId = (): string => {
+  const storageKey = 'push_notification_device_id';
+  let deviceId = localStorage.getItem(storageKey);
+  
+  if (!deviceId) {
+    // Generate a new device ID if none exists
+    deviceId = `${navigator.userAgent.replace(/[^a-zA-Z0-9]/g, '')}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    localStorage.setItem(storageKey, deviceId);
+  }
+  
+  return deviceId;
+};
+
 const subscribeToPushNotifications = async () => {
   // Check if service workers are supported
   if (!("serviceWorker" in navigator)) {
@@ -40,6 +54,10 @@ const subscribeToPushNotifications = async () => {
     // Return a resolved promise to allow the app to continue
     return Promise.resolve();
   }
+  
+  // Get device identifier for subscription management
+  const deviceId = getDeviceId();
+  console.log("Device ID for push notifications:", deviceId.substring(0, 20) + "...");
 
 function cleanVapidKey(key: string): string {
   // Remove whitespace, padding, and normalize
@@ -180,19 +198,62 @@ const saveSubscription = async (subscription: PushSubscription) => {
       return { success: false, error };
     }
     
+    // Get device identifier
+    const deviceId = getDeviceId();
+    
     // Extract keys from the subscription
     const subscriptionKeys = subscription.toJSON().keys;
+    
+    // First, clean up old subscriptions for this device
+    try {
+      // Find existing subscriptions for this device
+      const { data: existingSubscriptions } = await supabase
+        .from("subscriptions")
+        .select("id, endpoint, device_id")
+        .eq("user_id", user.id)
+        .eq("device_id", deviceId);
+      
+      // If we have existing subscriptions for this device that don't match the current endpoint,
+      // delete them to prevent duplicate subscriptions
+      if (existingSubscriptions && existingSubscriptions.length > 0) {
+        const outdatedSubscriptions = existingSubscriptions.filter(
+          sub => sub.endpoint !== subscription.endpoint
+        );
+        
+        if (outdatedSubscriptions.length > 0) {
+          console.log(`Cleaning up ${outdatedSubscriptions.length} outdated subscriptions for this device`);
+          
+          for (const sub of outdatedSubscriptions) {
+            await supabase
+              .from("subscriptions")
+              .delete()
+              .eq("id", sub.id);
+          }
+        }
+      }
+    } catch (cleanupError) {
+      console.error("Error cleaning up old subscriptions:", cleanupError);
+      // Continue with saving the new subscription even if cleanup fails
+    }
+    
+    // Store the VAPID public key with the subscription to track which key was used
+    const vapidKeyUsed = VAPID_PUBLIC_KEY;
     
     // Attempt to insert or update the subscription
     const { data, error } = await supabase
       .from("subscriptions")
       .upsert(
-        { 
-          endpoint: subscription.endpoint, 
-          keys: subscriptionKeys, 
-          user_id: user.id 
+        {
+          endpoint: subscription.endpoint,
+          keys: subscriptionKeys,
+          user_id: user.id,
+          device_id: deviceId,
+          user_agent: navigator.userAgent,
+          vapid_key: vapidKeyUsed,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         },
-        { 
+        {
           onConflict: 'endpoint',  // Handle conflicts based on endpoint
           ignoreDuplicates: false  // Update existing records rather than ignoring
         }
