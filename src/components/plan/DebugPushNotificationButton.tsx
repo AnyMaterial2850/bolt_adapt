@@ -60,7 +60,19 @@ export function DebugPushNotificationButton() {
         addLog(`Service worker state: ${registration.active ? 'active' : registration.installing ? 'installing' : registration.waiting ? 'waiting' : 'unknown'}`);
       }
       
-      const subscription = registration ? await registration.pushManager.getSubscription() : null;
+      // Check if pushManager exists before trying to use it
+      let subscription = null;
+      if (registration && 'pushManager' in registration) {
+        try {
+          addLog('PushManager is available');
+          subscription = await registration.pushManager.getSubscription();
+        } catch (error) {
+          addLog(`Error getting push subscription: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } else {
+        addLog('WARNING: PushManager is not available in this browser/context');
+      }
+      
       addLog(`Push subscription: ${subscription ? 'Found' : 'Not found'}`);
       
       if (subscription) {

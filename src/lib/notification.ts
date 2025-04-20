@@ -118,21 +118,33 @@ if (!isValidVapidKey(cleanedVapidKey)) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // Check for existing push subscription
-      let subscription = await registration.pushManager.getSubscription();
-      if (subscription) {
-        console.log("Existing push subscription found, reusing it.");
-        await saveSubscription(subscription);
-        return;
+      // Check if pushManager is available
+      if (!('pushManager' in registration)) {
+        console.warn("PushManager is not available in this browser/context");
+        return Promise.resolve(); // Exit gracefully
       }
 
-      // No existing subscription, create a new one
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(cleanedVapidKey),
-      });
+      try {
+        // Check for existing push subscription
+        let subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          console.log("Existing push subscription found, reusing it.");
+          await saveSubscription(subscription);
+          return;
+        }
 
-      await saveSubscription(subscription);
+        // No existing subscription, create a new one
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(cleanedVapidKey),
+        });
+        
+        // Save the new subscription
+        await saveSubscription(subscription);
+      } catch (error) {
+        console.error("Error accessing push subscription:", error);
+        return Promise.resolve(); // Exit gracefully
+      }
     } catch (error) {
       console.error("Push subscription error:", error);
       if (error) {
